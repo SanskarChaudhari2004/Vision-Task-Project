@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Tasks</h1>
+<table class="table table-striped">
+    <thead>
+    <tr>
+        <th>Title</th>
+        <th>Description</th>
+        <th>Sensitivity</th>
+        <th>Created By</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for task in tasks %}
+        <tr>
+            <td>{{ task.title }}</td>
+            <td>{{ task.description }}</td>
+            <td>{{ task.sensitivity }}</td>
+            <td>{{ task.created_by }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<h2>Add a task</h2>
+<form method="post" action="{{ url_for('ui_create_task') }}">
+    <div class="mb-3">
+        <label for="title" class="form-label">Title</label>
+        <input type="text" class="form-control" id="title" name="title" required />
+    </div>
+    <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <textarea class="form-control" id="description" name="description"></textarea>
+    </div>
+    <div class="mb-3">
+        <label for="sensitivity" class="form-label">Sensitivity</label>
+        <select class="form-select" id="sensitivity" name="sensitivity">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Create</button>
+</form>
+{% endblock %}
