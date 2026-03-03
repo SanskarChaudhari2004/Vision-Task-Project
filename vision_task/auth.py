@@ -5,9 +5,36 @@ from .models import User
 
 
 # In-memory user store for demo purposes
+# In production: Hash passwords, use proper authentication (LDAP, OAuth, etc.)
 USERS = {
-    "admin": User(username="admin", roles=["admin", "user"]),
-    "clerk": User(username="clerk", roles=["user"]),
+    "admin": User(
+        username="admin",
+        roles=["admin", "manager"],
+        department="Administration",
+        can_view_high_sensitivity=True,
+        can_view_medium_sensitivity=True,
+    ),
+    "manager": User(
+        username="manager",
+        roles=["manager", "user"],
+        department="Clinic",
+        can_view_high_sensitivity=True,
+        can_view_medium_sensitivity=True,
+    ),
+    "clerk": User(
+        username="clerk",
+        roles=["user"],
+        department="Clinic",
+        can_view_high_sensitivity=False,
+        can_view_medium_sensitivity=True,
+    ),
+    "staff": User(
+        username="staff",
+        roles=["user"],
+        department="Billing",
+        can_view_high_sensitivity=False,
+        can_view_medium_sensitivity=False,
+    ),
 }
 
 
@@ -35,3 +62,4 @@ def require_role(role):
         return wrapped
 
     return decorator
+

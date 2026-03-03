@@ -1,45 +1,128 @@
 {% extends "base.html" %}
-{% block content %}
-<h1>Tasks</h1>
-<table class="table table-striped">
-    <thead>
-    <tr>
-        <th>Title</th>
-        <th>Description</th>
-        <th>Sensitivity</th>
-        <th>Created By</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for task in tasks %}
-        <tr>
-            <td>{{ task.title }}</td>
-            <td>{{ task.description }}</td>
-            <td>{{ task.sensitivity }}</td>
-            <td>{{ task.created_by }}</td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
 
-<h2>Add a task</h2>
-<form method="post" action="{{ url_for('ui_create_task') }}">
-    <div class="mb-3">
-        <label for="title" class="form-label">Title</label>
-        <input type="text" class="form-control" id="title" name="title" required />
+{% block title %}Dashboard - Vision Task{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1>Task Dashboard</h1>
+        <p class="text-muted">Logged in as: <strong>{{ user.username }}</strong> | Department: <strong>{{ user.department }}</strong></p>
     </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Quick Stats</h5>
+                <ul class="list-unstyled">
+                    <li><strong>Total Tasks:</strong> {{ stats.total_tasks }}</li>
+                    <li><strong>Assigned to You:</strong> {{ stats.assigned_to_user }}</li>
+                    <li><strong>Created by You:</strong> {{ stats.created_by_user }}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr/>
+
+<h2>Active Tasks</h2>
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+        <tr>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Sensitivity</th>
+            <th>Assigned To</th>
+            <th>Created By</th>
+            <th>Priority</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for task in tasks %}
+            <tr class="sensitivity-{{ task.sensitivity }}">
+                <td>
+                    <a href="{{ url_for('ui_view_task', task_id=task.id) }}">{{ task.title }}</a>
+                </td>
+                <td>
+                    <span class="badge" style="background-color: #0d6efd;">{{ task.status }}</span>
+                </td>
+                <td>
+                    <span class="badge" style="
+                        {% if task.sensitivity == 'high' %}background-color: #dc3545;
+                        {% elif task.sensitivity == 'medium' %}background-color: #ffc107;
+                        {% else %}background-color: #28a745;{% endif %}
+                    ">{{ task.sensitivity }}</span>
+                </td>
+                <td>{{ task.assigned_to or '-' }}</td>
+                <td>{{ task.created_by }}</td>
+                <td>
+                    {% if task.priority == 2 %}<strong style="color: #dc3545;">High</strong>
+                    {% elif task.priority == 1 %}<strong style="color: #ffc107;">Medium</strong>
+                    {% else %}<span style="color: #28a745;">Low</span>{% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('ui_view_task', task_id=task.id) }}" class="btn btn-sm btn-info">View</a>
+                </td>
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="7" class="text-center text-muted">No tasks available</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<hr/>
+
+<h2>Create New Task</h2>
+<form method="post" action="{{ url_for('ui_create_task') }}" class="needs-validation">
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="title" name="title" required />
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="assigned_to" class="form-label">Assign To</label>
+            <select class="form-select" id="assigned_to" name="assigned_to">
+                <option value="">Unassigned</option>
+                <option value="manager">Manager</option>
+                <option value="clerk">Clerk</option>
+                <option value="staff">Staff</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label for="sensitivity" class="form-label">Sensitivity Level</label>
+            <select class="form-select" id="sensitivity" name="sensitivity">
+                <option value="low">Low - Standard operations</option>
+                <option value="medium">Medium - Internal data only</option>
+                <option value="high">High - Confidential/HIPAA</option>
+            </select>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="priority" class="form-label">Priority</label>
+            <select class="form-select" id="priority" name="priority">
+                <option value="0">Low</option>
+                <option value="1">Medium</option>
+                <option value="2">High</option>
+            </select>
+        </div>
+    </div>
+
     <div class="mb-3">
         <label for="description" class="form-label">Description</label>
-        <textarea class="form-control" id="description" name="description"></textarea>
+        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
     </div>
-    <div class="mb-3">
-        <label for="sensitivity" class="form-label">Sensitivity</label>
-        <select class="form-select" id="sensitivity" name="sensitivity">
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-        </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Create</button>
+
+    <button type="submit" class="btn btn-primary btn-lg">Create Task</button>
 </form>
+
+<div class="alert alert-info mt-4">
+    <strong>Healthcare Security Notice:</strong> All task actions are logged for HIPAA compliance and audit purposes.
+    Sensitivity levels restrict access based on user roles and clearance.
+</div>
 {% endblock %}

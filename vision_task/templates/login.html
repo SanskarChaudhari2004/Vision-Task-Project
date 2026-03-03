@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Vision Task{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 400px; margin-top: 80px;">
+    <div class="card shadow-lg">
+        <div class="card-body">
+            <h1 class="card-title text-center mb-4">Vision Task</h1>
+            <p class="text-center text-muted mb-4">Healthcare Task Management System</p>
+
+            {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+
+            <form method="post">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control form-control-lg" id="username" name="username" required autofocus />
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-100">Login</button>
+            </form>
+
+            <hr/>
+
+            <div class="alert alert-info" style="font-size: 0.9rem;">
+                <strong>Demo Credentials:</strong>
+                <ul class="mb-0">
+                    <li><code>admin</code> - Full system access</li>
+                    <li><code>manager</code> - Manager permissions</li>
+                    <li><code>clerk</code> - Clinic clerk</li>
+                    <li><code>staff</code> - Billing staff</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-warning mt-4">
+        <strong>Security Notice:</strong> This is a demonstration system. In production, implement proper password authentication and secure protocols (HTTPS, MFA, etc.).
+    </div>
+</div>
+{% endblock %}

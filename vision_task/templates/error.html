@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Error - Vision Task{% endblock %}
+
+{% block content %}
+<div class="alert alert-danger" role="alert">
+    <h4 class="alert-heading">Error</h4>
+    <p>{{ message }}</p>
+    <hr>
+    <a href="{{ url_for('ui_dashboard') }}" class="btn btn-primary">Return to Dashboard</a>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">Return Home</a>
+</div>
+{% endblock %}
