@@ -1,31 +1,44 @@
 {% extends "base.html" %}
-
 {% block title %}{{ task.title }} - Vision Task{% endblock %}
 
 {% block content %}
-<div class="row">
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('ui_dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">{{ task.title }}</li>
+    </ol>
+</nav>
+
+<div class="row g-4">
+    <!-- Left: Task Detail -->
     <div class="col-md-8">
-        <div class="card sensitivity-{{ task.sensitivity }}">
-            <div class="card-header">
-                <h2 class="mb-0">{{ task.title }}</h2>
+        <div class="card h-100 sensitivity-{{ task.sensitivity }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="mb-0 fs-4">{{ task.title }}</h2>
+                <span class="badge
+                    {% if task.sensitivity == 'high' %}bg-danger
+                    {% elif task.sensitivity == 'medium' %}bg-warning text-dark
+                    {% else %}bg-success{% endif %} fs-6">
+                    {% if task.sensitivity == 'high' %}🔒 HIGH{% elif task.sensitivity == 'medium' %}🟡 MEDIUM{% else %}🟢 LOW{% endif %}
+                </span>
             </div>
             <div class="card-body">
                 <div class="row mb-4">
                     <div class="col-md-6">
                         <p><strong>Status:</strong>
-                            <span class="badge" style="background-color: #0d6efd;">{{ task.status }}</span>
-                        </p>
-                        <p><strong>Sensitivity:</strong>
-                            <span class="badge" style="
-                                {% if task.sensitivity == 'high' %}background-color: #dc3545;
-                                {% elif task.sensitivity == 'medium' %}background-color: #ffc107;
-                                {% else %}background-color: #28a745;{% endif %}
-                            ">{{ task.sensitivity }}</span>
+                            <span class="badge
+                                {% if task.status == 'completed' %}bg-success
+                                {% elif task.status == 'in_progress' %}bg-primary
+                                {% elif task.status == 'cancelled' %}bg-secondary
+                                {% elif task.status == 'assigned' %}bg-info text-dark
+                                {% else %}bg-light text-dark border{% endif %}">
+                                {{ task.status | replace('_', ' ') | title }}
+                            </span>
                         </p>
                         <p><strong>Priority:</strong>
-                            {% if task.priority == 2 %}<strong style="color: #dc3545;">HIGH</strong>
-                            {% elif task.priority == 1 %}<strong style="color: #ffc107;">MEDIUM</strong>
-                            {% else %}<span style="color: #28a745;">LOW</span>{% endif %}
+                            {% if task.priority == 2 %}<span class="text-danger fw-bold">High</span>
+                            {% elif task.priority == 1 %}<span class="text-warning fw-bold">Medium</span>
+                            {% else %}<span class="text-muted">Low</span>{% endif %}
                         </p>
                     </div>
                     <div class="col-md-6">
@@ -37,85 +50,109 @@
 
                 <div class="mb-4">
                     <h5>Description</h5>
-                    <p>{{ task.description or '(No description)' }}</p>
+                    <p class="text-muted">{{ task.description or '(No description provided)' }}</p>
                 </div>
 
-                <div class="row text-muted" style="font-size: 0.9rem;">
+                <div class="row text-muted" style="font-size:0.85rem;">
                     <div class="col-md-6">
-                        <p><strong>Created:</strong> {{ task.created_at }}</p>
+                        <strong>Created:</strong> {{ task.created_at[:19] | replace('T',' ') }}
                     </div>
                     <div class="col-md-6">
-                        <p><strong>Updated:</strong> {{ task.updated_at }}</p>
+                        <strong>Last Updated:</strong> {{ task.updated_at[:19] | replace('T',' ') }}
                     </div>
                 </div>
             </div>
+
+            {% if task.sensitivity == 'high' %}
+            <div class="card-footer bg-danger bg-opacity-10 text-danger" style="font-size:0.82rem;">
+                🔒 This is a high-sensitivity task. All access and modifications require re-authentication and are fully logged.
+            </div>
+            {% endif %}
         </div>
     </div>
 
+    <!-- Right: Edit Panel -->
     <div class="col-md-4">
         {% if user.username == task.created_by or 'admin' in user.roles %}
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Edit Task</h5>
-            </div>
+        <div class="card mb-3">
+            <div class="card-header bg-light fw-semibold">Edit Task</div>
             <div class="card-body">
                 <form method="post" action="{{ url_for('ui_update_task', task_id=task.id) }}">
-                    <div class="mb-3">
-                        <label for="title" class="form-label">Title</label>
-                        <input type="text" class="form-control" id="title" name="title" value="{{ task.title }}" />
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Title</label>
+                        <input type="text" class="form-control form-control-sm" name="title" value="{{ task.title }}" />
                     </div>
-
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" name="description" rows="3">{{ task.description }}</textarea>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Description</label>
+                        <textarea class="form-control form-control-sm" name="description" rows="3">{{ task.description }}</textarea>
                     </div>
-
-                    <div class="mb-3">
-                        <label for="status" class="form-label">Status</label>
-                        <select class="form-select" id="status" name="status">
-                            <option value="new" {% if task.status == 'new' %}selected{% endif %}>New</option>
-                            <option value="assigned" {% if task.status == 'assigned' %}selected{% endif %}>Assigned</option>
-                            <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                            <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>Completed</option>
-                            <option value="cancelled" {% if task.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Status</label>
+                        <select class="form-select form-select-sm" name="status">
+                            {% for s in ['new','assigned','in_progress','completed','cancelled'] %}
+                            <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>
+                                {{ s | replace('_',' ') | title }}
+                            </option>
+                            {% endfor %}
                         </select>
                     </div>
-
-                    <div class="mb-3">
-                        <label for="assigned_to" class="form-label">Assign To</label>
-                        <select class="form-select" id="assigned_to" name="assigned_to">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Assign To</label>
+                        <select class="form-select form-select-sm" name="assigned_to">
                             <option value="">Unassigned</option>
-                            <option value="manager" {% if task.assigned_to == 'manager' %}selected{% endif %}>Manager</option>
-                            <option value="clerk" {% if task.assigned_to == 'clerk' %}selected{% endif %}>Clerk</option>
-                            <option value="staff" {% if task.assigned_to == 'staff' %}selected{% endif %}>Staff</option>
+                            {% for u in ['admin','manager','clerk','staff'] %}
+                            <option value="{{ u }}" {% if task.assigned_to == u %}selected{% endif %}>{{ u }}</option>
+                            {% endfor %}
                         </select>
                     </div>
-
                     <div class="mb-3">
-                        <label for="priority" class="form-label">Priority</label>
-                        <select class="form-select" id="priority" name="priority">
+                        <label class="form-label small fw-semibold">Priority</label>
+                        <select class="form-select form-select-sm" name="priority">
                             <option value="0" {% if task.priority == 0 %}selected{% endif %}>Low</option>
                             <option value="1" {% if task.priority == 1 %}selected{% endif %}>Medium</option>
                             <option value="2" {% if task.priority == 2 %}selected{% endif %}>High</option>
                         </select>
                     </div>
-
-                    <button type="submit" class="btn btn-primary w-100">Save Changes</button>
-                    <a href="{{ url_for('ui_dashboard') }}" class="btn btn-secondary w-100 mt-2">Back to Dashboard</a>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+                        <a href="{{ url_for('ui_dashboard') }}" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
+                    </div>
                 </form>
             </div>
         </div>
+
+        <!-- Delete (UC-11: admin only, high-sensitivity requires re-auth) -->
+        {% if 'admin' in user.roles %}
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white fw-semibold">Danger Zone</div>
+            <div class="card-body">
+                <p class="text-muted small mb-2">
+                    Permanently delete this task. This action cannot be undone.
+                    {% if task.sensitivity == 'high' %}Re-authentication required.{% endif %}
+                </p>
+                <form method="post" action="{{ url_for('ui_delete_task', task_id=task.id) }}"
+                      onsubmit="return confirm('Are you sure you want to permanently delete this task?');">
+                    <button type="submit" class="btn btn-danger btn-sm w-100">
+                        🗑 Delete Task
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
         {% else %}
         <div class="alert alert-info">
-            <p><strong>Read-Only</strong></p>
-            <p>Only the task creator or administrators can edit this task.</p>
-            <a href="{{ url_for('ui_dashboard') }}" class="btn btn-secondary btn-sm">Back to Dashboard</a>
+            <strong>Read-Only View</strong><br>
+            <small>Only the task creator or administrators can edit this task.</small>
+            <div class="mt-2">
+                <a href="{{ url_for('ui_dashboard') }}" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
+            </div>
         </div>
         {% endif %}
     </div>
 </div>
 
-<div class="alert alert-info mt-4">
-    <strong>Audit Trail:</strong> All modifications to this task are logged for compliance. The system maintains a complete record of who accessed, viewed, or modified this task.
+<div class="alert alert-secondary mt-4" style="font-size:0.82rem;">
+    <strong>Audit Trail:</strong> All access and modifications to this task are recorded in the activity log. Records are immutable and cannot be deleted by any user.
 </div>
 {% endblock %}
