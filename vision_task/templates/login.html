@@ -1,42 +1,50 @@
 {% extends "base.html" %}
-
 {% block title %}Login - Vision Task{% endblock %}
 
 {% block content %}
-<div class="container" style="max-width: 400px; margin-top: 80px;">
+<div class="container" style="max-width: 420px; margin-top: 80px;">
     <div class="card shadow-lg">
-        <div class="card-body">
-            <h1 class="card-title text-center mb-4">Vision Task</h1>
+        <div class="card-body p-4">
+            <h1 class="card-title text-center mb-1">🏥 Vision Task</h1>
             <p class="text-center text-muted mb-4">Healthcare Task Management System</p>
 
             {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
             {% endif %}
 
-            <form method="post">
+            <form method="post" action="{{ url_for('login') }}">
                 <div class="mb-3">
-                    <label for="username" class="form-label">Username</label>
-                    <input type="text" class="form-control form-control-lg" id="username" name="username" required autofocus />
+                    <label for="username" class="form-label fw-semibold">Username</label>
+                    <input type="text" class="form-control form-control-lg"
+                           id="username" name="username" required autofocus
+                           placeholder="Enter username" />
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg w-100">Login</button>
+                <div class="mb-4">
+                    <label for="password" class="form-label fw-semibold">Password</label>
+                    <input type="password" class="form-control form-control-lg"
+                           id="password" name="password" required
+                           placeholder="Enter password" />
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-100">Sign In</button>
             </form>
 
-            <hr/>
-
-            <div class="alert alert-info" style="font-size: 0.9rem;">
+            <hr />
+            <div class="alert alert-info mb-0" style="font-size: 0.85rem;">
                 <strong>Demo Credentials:</strong>
-                <ul class="mb-0">
-                    <li><code>admin</code> - Full system access</li>
-                    <li><code>manager</code> - Manager permissions</li>
-                    <li><code>clerk</code> - Clinic clerk</li>
-                    <li><code>staff</code> - Billing staff</li>
-                </ul>
+                <table class="table table-sm table-borderless mb-0 mt-1">
+                    <thead><tr><th>Username</th><th>Password</th><th>Role</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>admin</code></td>   <td><code>Admin123!</code></td>   <td>Admin</td></tr>
+                        <tr><td><code>manager</code></td> <td><code>Manager123!</code></td> <td>Manager</td></tr>
+                        <tr><td><code>clerk</code></td>   <td><code>Clerk123!</code></td>   <td>Clerk</td></tr>
+                        <tr><td><code>staff</code></td>   <td><code>Staff123!</code></td>   <td>Staff</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-
-    <div class="alert alert-warning mt-4">
-        <strong>Security Notice:</strong> This is a demonstration system. In production, implement proper password authentication and secure protocols (HTTPS, MFA, etc.).
+    <div class="alert alert-warning mt-3" style="font-size:0.82rem;">
+        <strong>Security Notice:</strong> This is a demonstration system. In production, enforce HTTPS, MFA, and replace demo passwords.
     </div>
 </div>
 {% endblock %}
