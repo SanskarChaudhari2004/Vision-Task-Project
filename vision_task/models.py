@@ -53,6 +53,7 @@ class Task:
 @dataclass
 class User:
     username: str
+    password_hash: str = ""          # NEW: hashed password field
     roles: List[str] = field(default_factory=list)
     department: str = ""
     can_view_high_sensitivity: bool = False
