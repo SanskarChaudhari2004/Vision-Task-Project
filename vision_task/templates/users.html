@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}User Management - Vision Task{% endblock %}
+
+{% block content %}
+<h1 class="mb-1">User Management</h1>
+<p class="text-muted mb-4">Manage Role-Based Access Control (RBAC) for all system users.</p>
+
+{% if success_msg %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    ✅ {{ success_msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if error_msg %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    ⚠️ {{ error_msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="row g-4">
+{% for u in users %}
+<div class="col-md-6">
+    <div class="card h-100 {% if 'admin' in u.roles %}border-danger{% elif 'manager' in u.roles %}border-primary{% else %}border-secondary{% endif %}">
+        <div class="card-header d-flex justify-content-between align-items-center
+            {% if 'admin' in u.roles %}bg-danger text-white
+            {% elif 'manager' in u.roles %}bg-primary text-white
+            {% else %}bg-light{% endif %}">
+            <div>
+                <strong>{{ u.username }}</strong>
+                <small class="ms-2 opacity-75">{{ u.department }}</small>
+            </div>
+            <div class="d-flex gap-1">
+                {% for r in u.roles %}
+                <span class="badge
+                    {% if r == 'admin' %}bg-light text-danger
+                    {% elif r == 'manager' %}bg-light text-primary
+                    {% else %}bg-light text-secondary{% endif %}">
+                    {{ r }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Clearance summary -->
+            <div class="mb-3 d-flex gap-2 flex-wrap">
+                <span class="badge {% if u.can_view_high_sensitivity %}bg-danger{% else %}bg-secondary{% endif %}">
+                    High Sensitivity: {% if u.can_view_high_sensitivity %}✓ Allowed{% else %}✗ Restricted{% endif %}
+                </span>
+                <span class="badge {% if u.can_view_medium_sensitivity %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                    Medium Sensitivity: {% if u.can_view_medium_sensitivity %}✓ Allowed{% else %}✗ Restricted{% endif %}
+                </span>
+            </div>
+
+            <!-- Role update form (UC-9) -->
+            <form method="post" action="{{ url_for('ui_update_role', username=u.username) }}">
+                <p class="mb-2 fw-semibold">Assign Roles:</p>
+                <div class="d-flex gap-3 mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="roles" value="admin"
+                               id="role_admin_{{ u.username }}"
+                               {% if 'admin' in u.roles %}checked{% endif %}>
+                        <label class="form-check-label text-danger fw-bold" for="role_admin_{{ u.username }}">
+                            Admin
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="roles" value="manager"
+                               id="role_manager_{{ u.username }}"
+                               {% if 'manager' in u.roles %}checked{% endif %}>
+                        <label class="form-check-label text-primary fw-bold" for="role_manager_{{ u.username }}">
+                            Manager
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="roles" value="user"
+                               id="role_user_{{ u.username }}"
+                               {% if 'user' in u.roles %}checked{% endif %}>
+                        <label class="form-check-label" for="role_user_{{ u.username }}">
+                            User
+                        </label>
+                    </div>
+                </div>
+
+                {% if u.username != user.username %}
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    Save Role Changes
+                </button>
+                {% else %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="You cannot modify your own role">
+                    Cannot Edit Own Role
+                </button>
+                {% endif %}
+            </form>
+        </div>
+        <div class="card-footer text-muted" style="font-size:0.8rem;">
+            All role changes are recorded in the activity log immediately upon saving.
+        </div>
+    </div>
+</div>
+{% endfor %}
+</div>
+
+<div class="alert alert-warning mt-4">
+    <strong>⚠️ Role Change Notice:</strong> Role changes take effect <em>immediately</em>. The system will prevent removing the last system administrator account. All changes are logged for audit purposes.
+</div>
+{% endblock %}
