@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Activity Log - Vision Task{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="mb-0">Activity Log</h1>
+        <p class="text-muted mb-0">
+            Showing {{ entries|length }} of {{ total }} entries (most recent first) — read-only audit trail
+        </p>
+    </div>
+    <a href="{{ url_for('ui_activity_log', export='txt',
+                        filter_user=filter_user, filter_action=filter_action,
+                        filter_status=filter_status) }}"
+       class="btn btn-outline-secondary btn-sm">
+        ⬇ Export .txt
+    </a>
+</div>
+
+<!-- Filter bar (UC-6 date/filter requirement) -->
+<form method="get" action="{{ url_for('ui_activity_log') }}" class="card card-body mb-4 bg-light">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label fw-semibold">Filter by User</label>
+            <select name="filter_user" class="form-select form-select-sm">
+                <option value="">All Users</option>
+                {% for u in unique_users %}
+                <option value="{{ u }}" {% if filter_user == u %}selected{% endif %}>{{ u }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-semibold">Filter by Action</label>
+            <select name="filter_action" class="form-select form-select-sm">
+                <option value="">All Actions</option>
+                {% for a in unique_actions %}
+                <option value="{{ a }}" {% if filter_action == a %}selected{% endif %}>{{ a }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-semibold">Filter by Status</label>
+            <select name="filter_status" class="form-select form-select-sm">
+                <option value="">All Statuses</option>
+                <option value="success" {% if filter_status == 'success' %}selected{% endif %}>Success</option>
+                <option value="denied"  {% if filter_status == 'denied'  %}selected{% endif %}>Denied</option>
+                <option value="error"   {% if filter_status == 'error'   %}selected{% endif %}>Error</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-1">
+            <button type="submit" class="btn btn-primary btn-sm w-100">Apply</button>
+            <a href="{{ url_for('ui_activity_log') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
+        </div>
+    </div>
+</form>
+
+{% if entries %}
+<div class="table-responsive">
+    <table class="table table-sm table-striped table-hover align-middle" style="font-size:0.85rem;">
+        <thead class="table-dark">
+            <tr>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Resource</th>
+                <th>Sensitivity</th>
+                <th>Status</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for entry in entries %}
+        <tr class="{% if entry.status == 'denied' %}table-warning{% elif entry.status == 'error' %}table-danger{% endif %}">
+            <td class="text-nowrap text-muted">{{ entry.timestamp[:19] | replace('T',' ') }}</td>
+            <td><strong>{{ entry.user_id or '—' }}</strong></td>
+            <td>
+                <span class="badge
+                    {% if entry.action in ['delete','reauth_required'] %}bg-danger
+                    {% elif entry.action in ['update','update_role'] %}bg-warning text-dark
+                    {% elif entry.action == 'create' %}bg-success
+                    {% elif entry.action in ['login','logout','reauth'] %}bg-info text-dark
+                    {% else %}bg-secondary{% endif %}">
+                    {{ entry.action or '—' }}
+                </span>
+            </td>
+            <td>
+                <span class="text-muted">{{ entry.resource_type }}</span>
+                {% if entry.resource_id and entry.resource_id != 'all' %}
+                <br><code style="font-size:0.75rem;">{{ entry.resource_id[:12] }}…</code>
+                {% endif %}
+            </td>
+            <td>
+                {% if entry.sensitivity %}
+                <span class="badge
+                    {% if entry.sensitivity == 'high' %}bg-danger
+                    {% elif entry.sensitivity == 'medium' %}bg-warning text-dark
+                    {% else %}bg-success{% endif %}">
+                    {{ entry.sensitivity }}
+                </span>
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                <span class="badge
+                    {% if entry.status == 'denied' %}bg-warning text-dark
+                    {% elif entry.status == 'error' %}bg-danger
+                    {% else %}bg-success{% endif %}">
+                    {{ entry.status or 'success' }}
+                </span>
+            </td>
+            <td>
+                {% if entry.details %}
+                <small class="text-muted">
+                    {% for k, v in entry.details.items() %}
+                        <span class="me-2"><strong>{{ k }}:</strong> {{ v }}</span>
+                    {% endfor %}
+                </small>
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+    No log entries match the selected filters. Try adjusting or clearing the filters.
+</div>
+{% endif %}
+
+<div class="alert alert-secondary mt-3" style="font-size:0.82rem;">
+    <strong>Audit Trail Notice:</strong> Activity log entries are non-editable and cannot be deleted by any user, including system administrators. All records are maintained for HIPAA compliance purposes.
+</div>
+{% endblock %}
