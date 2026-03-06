@@ -1,0 +1,65 @@
+How to Run the Vision Task Project
+
+This guide shows the steps to run the Vision Task project locally (Windows).
+
+---
+
+1) Install Python (if needed)
+
+- The project requires Python 3.8+.
+- Confirm by running:
+
+  python --version
+
+If you do not have Python installed, download it from https://www.python.org/downloads/ and enable the "Add Python to PATH" option during installation.
+
+---
+
+2) Install dependencies
+
+From the project root (c:\Users\dillo\Vision-Task-Project):
+
+  pip install -r requirements.txt
+
+---
+
+3) Run the application
+
+Start the Flask server:
+
+  python run.py
+
+This will start the app at:
+
+- http://127.0.0.1:5000/
+
+---
+
+4) Log in (demo credentials)
+
+Open a browser and go to:
+
+- http://127.0.0.1:5000/login
+
+Use any of the following usernames:
+
+- admin (Admin + Manager)
+- manager (Manager + User)
+- clerk (User)
+- staff (User)
+
+---
+
+5) API access (optional)
+
+The app exposes a REST API. All requests require Bearer token authentication using a demo username.
+
+Example:
+
+  curl -H "Authorization: Bearer admin" http://127.0.0.1:5000/api/tasks
+
+---
+
+6) Stopping the server
+
+In the terminal running python run.py, press Ctrl+C to stop the server.
