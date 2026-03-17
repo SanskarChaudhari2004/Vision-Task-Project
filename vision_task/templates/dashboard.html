@@ -35,6 +35,33 @@
                 </div>
             </div>
         </div>
+
+        {% if is_doctor or is_nurse %}
+        <div class="card mt-3">
+            <div class="card-header">
+                Clinical Quick Actions
+            </div>
+            <div class="card-body">
+                {% if is_doctor %}
+                <p class="mb-2">As a <strong>doctor</strong>, you can quickly focus on high-sensitivity clinical tasks.</p>
+                <a href="{{ url_for('ui_dashboard') }}?sensitivity=high" class="btn btn-sm btn-danger w-100 mb-2">
+                    View High-Sensitivity Tasks
+                </a>
+                {% endif %}
+
+                {% if is_nurse %}
+                <p class="mb-2">As a <strong>nurse</strong>, you can quickly focus on medium-sensitivity clinical tasks.</p>
+                <a href="{{ url_for('ui_dashboard') }}?sensitivity=medium" class="btn btn-sm btn-info w-100 mb-2">
+                    View Medium-Sensitivity Tasks
+                </a>
+                {% endif %}
+
+                <a href="{{ url_for('ui_dashboard') }}?assigned_to={{ user.username }}" class="btn btn-sm btn-outline-primary w-100">
+                    View Tasks Assigned to Me
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -73,6 +100,17 @@
         </div>
     </div>
 </form>
+
+{% if search_query or filter_sensitivity or filter_status or filter_assigned %}
+<div class="alert alert-info py-2 mb-3">
+    Showing filtered results.
+    {% if search_query %} Query: <strong>{{ search_query }}</strong>{% endif %}
+    {% if filter_sensitivity %} Sensitivity: <strong>{{ filter_sensitivity }}</strong>{% endif %}
+    {% if filter_status %} Status: <strong>{{ filter_status }}</strong>{% endif %}
+    {% if filter_assigned %} Assigned to: <strong>{{ filter_assigned }}</strong>{% endif %}
+    &mdash; <a href="{{ url_for('ui_dashboard') }}">Clear all filters</a>
+</div>
+{% endif %}
 
 {% if search_query or filter_sensitivity or filter_status %}
 <div class="alert alert-info py-2 mb-3">
@@ -170,6 +208,8 @@
                         <option value="">Unassigned</option>
                         <option value="admin">Admin</option>
                         <option value="manager">Manager</option>
+                        <option value="doctor">Doctor</option>
+                        <option value="nurse">Nurse</option>
                         <option value="clerk">Clerk</option>
                         <option value="staff">Staff</option>
                     </select>

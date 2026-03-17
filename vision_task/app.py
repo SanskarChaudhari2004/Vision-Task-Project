@@ -6,8 +6,9 @@ from flask import (
 from .auth import (
     require_role, authenticate, verify_password,
     is_reauth_valid, set_reauth_session, clear_reauth_session,
-    USERS, REAUTH_TIMEOUT_MINUTES,
+    get_user, list_users, create_user, delete_user, REAUTH_TIMEOUT_MINUTES,
 )
+from werkzeug.security import generate_password_hash
 from .tasks import TaskManager
 from .logger import activity_logger, AuditLog
 
@@ -23,7 +24,7 @@ def create_app():
 
     def _get_session_user():
         username = session.get("username")
-        return USERS.get(username) if username else None
+        return get_user(username) if username else None
 
     def _require_login():
         """Return redirect if not logged in, else None."""
@@ -92,11 +93,12 @@ def create_app():
     @authenticate
     @require_role("admin")
     def list_users_api(user):
+        users = list_users()
         users_list = [
             {"username": u.username, "roles": u.roles,
              "department": u.department,
              "can_view_high_sensitivity": u.can_view_high_sensitivity}
-            for u in USERS.values()
+            for u in users
         ]
         AuditLog.log_action(user.username, "list", "users", "all")
         return jsonify({"users": users_list, "count": len(users_list)})
@@ -194,6 +196,7 @@ def create_app():
         search_query = request.args.get("q", "").strip().lower()
         filter_sensitivity = request.args.get("sensitivity", "")
         filter_status = request.args.get("status", "")
+        filter_assigned = request.args.get("assigned_to", "")
 
         all_tasks = task_manager.list_tasks(user)
 
@@ -208,6 +211,8 @@ def create_app():
             all_tasks = [t for t in all_tasks if t.sensitivity.value == filter_sensitivity]
         if filter_status:
             all_tasks = [t for t in all_tasks if t.status.value == filter_status]
+        if filter_assigned:
+            all_tasks = [t for t in all_tasks if (t.assigned_to or "") == filter_assigned]
 
         stats = task_manager.get_stats(user)
         return render_template(
@@ -218,6 +223,9 @@ def create_app():
             search_query=search_query,
             filter_sensitivity=filter_sensitivity,
             filter_status=filter_status,
+            filter_assigned=filter_assigned,
+            is_doctor="doctor" in user.roles,
+            is_nurse="nurse" in user.roles,
         )
 
     @app.route("/dashboard", methods=["POST"])
@@ -416,7 +424,7 @@ def create_app():
 
         success_msg = request.args.get("success")
         return render_template("users.html", user=user,
-                               users=list(USERS.values()),
+                               users=list_users(),
                                success_msg=success_msg)
 
     @app.route("/users/<username>/role", methods=["POST"])
@@ -430,36 +438,39 @@ def create_app():
             return render_template("error.html", user=actor,
                                    message="Only administrators can modify roles."), 403
 
-        target = USERS.get(username)
+        target = get_user(username)
         if not target:
             return render_template("error.html", user=actor,
                                    message=f"User '{username}' not found."), 404
 
         new_roles_raw = request.form.getlist("roles")
-        valid_roles = {"admin", "manager", "user"}
+        valid_roles = {"admin", "manager", "user", "doctor", "nurse"}
         new_roles = [r for r in new_roles_raw if r in valid_roles]
 
         if not new_roles:
             return render_template("users.html", user=actor,
-                                   users=list(USERS.values()),
+                                   users=list_users(),
                                    error_msg="At least one role must be selected.")
 
         # UC-9 constraint: system must keep at least one active admin
         if "admin" in target.roles and "admin" not in new_roles:
-            admin_count = sum(1 for u in USERS.values() if "admin" in u.roles)
+            admin_count = sum(1 for u in list_users() if "admin" in u.roles)
             if admin_count <= 1:
                 return render_template("users.html", user=actor,
-                                       users=list(USERS.values()),
+                                       users=list_users(),
                                        error_msg="Cannot remove the last system administrator.")
 
         # Also update sensitivity clearances based on role
-        new_high = "admin" in new_roles or "manager" in new_roles
-        new_medium = new_high or "user" in new_roles
+        # Doctors and managers have high-sensitivity clearance; nurses get medium clearance.
+        new_high = "admin" in new_roles or "manager" in new_roles or "doctor" in new_roles
+        new_medium = new_high or "user" in new_roles or "nurse" in new_roles
 
         old_roles = target.roles[:]
         target.roles = new_roles
         target.can_view_high_sensitivity = new_high
         target.can_view_medium_sensitivity = new_medium
+
+        create_user(target)
 
         AuditLog.log_action(
             actor.username, "update_role", "user", username,
@@ -471,5 +482,138 @@ def create_app():
         )
 
         return redirect(url_for("ui_users", success=f"Role for '{username}' updated successfully."))
+
+    @app.route("/users/create", methods=["POST"])
+    def ui_create_user():
+        """Admin-only user creation."""
+        redir = _require_login()
+        if redir:
+            return redir
+        actor = _get_session_user()
+        if "admin" not in actor.roles:
+            return render_template("error.html", user=actor,
+                                   message="Only administrators can create users."), 403
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        department = request.form.get("department", "")
+        roles = request.form.getlist("roles")
+
+        if not username or not password:
+            return render_template("users.html", user=actor,
+                                   users=list_users(),
+                                   error_msg="Username and password are required."), 400
+
+        if get_user(username):
+            return render_template("users.html", user=actor,
+                                   users=list_users(),
+                                   error_msg=f"User '{username}' already exists."), 400
+
+        valid_roles = {"admin", "manager", "user", "doctor", "nurse"}
+        roles = [r for r in roles if r in valid_roles]
+        if not roles:
+            roles = ["user"]
+
+        # Determine clearance based on role
+        can_view_high = "admin" in roles or "manager" in roles or "doctor" in roles
+        can_view_medium = can_view_high or "user" in roles or "nurse" in roles
+
+        new_user = type(actor)(
+            username=username,
+            password_hash=generate_password_hash(password),
+            roles=roles,
+            department=department,
+            can_view_high_sensitivity=can_view_high,
+            can_view_medium_sensitivity=can_view_medium,
+        )
+        create_user(new_user)
+
+        AuditLog.log_action(
+            actor.username, "create", "user", username,
+            details={
+                "created_by": actor.username,
+                "roles": roles,
+                "department": department,
+            }
+        )
+
+        return redirect(url_for("ui_users", success=f"User '{username}' created successfully."))
+
+    @app.route("/users/<username>/delete", methods=["POST"])
+    def ui_delete_user(username):
+        """Admin-only user deletion."""
+        redir = _require_login()
+        if redir:
+            return redir
+        actor = _get_session_user()
+        if "admin" not in actor.roles:
+            return render_template("error.html", user=actor,
+                                   message="Only administrators can delete users."), 403
+
+        if username == actor.username:
+            return render_template("users.html", user=actor,
+                                   users=list_users(),
+                                   error_msg="You cannot delete your own account."), 400
+
+        # Ensure at least one admin remains
+        target = get_user(username)
+        if not target:
+            return render_template("users.html", user=actor,
+                                   users=list_users(),
+                                   error_msg=f"User '{username}' not found."), 404
+
+        if "admin" in target.roles:
+            admin_count = sum(1 for u in list_users() if "admin" in u.roles)
+            if admin_count <= 1:
+                return render_template("users.html", user=actor,
+                                       users=list_users(),
+                                       error_msg="Cannot delete the last system administrator."), 400
+
+        delete_user(username)
+        AuditLog.log_action(actor.username, "delete", "user", username)
+        return redirect(url_for("ui_users", success=f"User '{username}' deleted successfully."))
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        department = request.form.get("department", "")
+        roles = request.form.getlist("roles")
+
+        if not username or not password:
+            return render_template("users.html", user=actor,
+                                   users=list_users(),
+                                   error_msg="Username and password are required."), 400
+
+        if get_user(username):
+            return render_template("users.html", user=actor,
+                                   users=list_users(),
+                                   error_msg=f"User '{username}' already exists."), 400
+
+        valid_roles = {"admin", "manager", "user", "doctor", "nurse"}
+        roles = [r for r in roles if r in valid_roles]
+        if not roles:
+            roles = ["user"]
+
+        # Determine clearance based on role
+        can_view_high = "admin" in roles or "manager" in roles or "doctor" in roles
+        can_view_medium = can_view_high or "user" in roles or "nurse" in roles
+
+        new_user = type(actor)(
+            username=username,
+            password_hash=generate_password_hash(password),
+            roles=roles,
+            department=department,
+            can_view_high_sensitivity=can_view_high,
+            can_view_medium_sensitivity=can_view_medium,
+        )
+        create_user(new_user)
+
+        AuditLog.log_action(
+            actor.username, "create", "user", username,
+            details={
+                "created_by": actor.username,
+                "roles": roles,
+                "department": department,
+            }
+        )
+
+        return redirect(url_for("ui_users", success=f"User '{username}' created successfully."))
 
     return app

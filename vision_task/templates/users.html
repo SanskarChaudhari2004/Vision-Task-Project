@@ -20,12 +20,63 @@
 {% endif %}
 
 <div class="row g-4">
+    <div class="col-md-6">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <strong>Create New User</strong>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('ui_create_user') }}">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input class="form-control" name="username" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input class="form-control" name="password" type="password" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <input class="form-control" name="department" placeholder="e.g., Clinic" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Roles</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <label class="form-check">
+                                <input class="form-check-input" type="checkbox" name="roles" value="admin" />
+                                <span class="form-check-label">Admin</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="checkbox" name="roles" value="manager" />
+                                <span class="form-check-label">Manager</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="checkbox" name="roles" value="doctor" />
+                                <span class="form-check-label">Doctor</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="checkbox" name="roles" value="nurse" />
+                                <span class="form-check-label">Nurse</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="checkbox" name="roles" value="user" checked />
+                                <span class="form-check-label">User</span>
+                            </label>
+                        </div>
+                    </div>
+                    <button class="btn btn-light btn-sm" type="submit">Create User</button>
+                </form>
+            </div>
+        </div>
+    </div>
 {% for u in users %}
 <div class="col-md-6">
     <div class="card h-100 {% if 'admin' in u.roles %}border-danger{% elif 'manager' in u.roles %}border-primary{% else %}border-secondary{% endif %}">
         <div class="card-header d-flex justify-content-between align-items-center
             {% if 'admin' in u.roles %}bg-danger text-white
             {% elif 'manager' in u.roles %}bg-primary text-white
+            {% elif 'doctor' in u.roles %}bg-success text-white
+            {% elif 'nurse' in u.roles %}bg-info text-dark
             {% else %}bg-light{% endif %}">
             <div>
                 <strong>{{ u.username }}</strong>
@@ -36,6 +87,8 @@
                 <span class="badge
                     {% if r == 'admin' %}bg-light text-danger
                     {% elif r == 'manager' %}bg-light text-primary
+                    {% elif r == 'doctor' %}bg-light text-success
+                    {% elif r == 'nurse' %}bg-light text-info
                     {% else %}bg-light text-secondary{% endif %}">
                     {{ r }}
                 </span>
@@ -74,6 +127,22 @@
                         </label>
                     </div>
                     <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="roles" value="doctor"
+                               id="role_doctor_{{ u.username }}"
+                               {% if 'doctor' in u.roles %}checked{% endif %}>
+                        <label class="form-check-label text-success fw-bold" for="role_doctor_{{ u.username }}">
+                            Doctor
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="roles" value="nurse"
+                               id="role_nurse_{{ u.username }}"
+                               {% if 'nurse' in u.roles %}checked{% endif %}>
+                        <label class="form-check-label text-info fw-bold" for="role_nurse_{{ u.username }}">
+                            Nurse
+                        </label>
+                    </div>
+                    <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="roles" value="user"
                                id="role_user_{{ u.username }}"
                                {% if 'user' in u.roles %}checked{% endif %}>
@@ -84,15 +153,23 @@
                 </div>
 
                 {% if u.username != user.username %}
-                <button type="submit" class="btn btn-sm btn-outline-primary">
-                    Save Role Changes
-                </button>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                        Save Role Changes
+                    </button>
+                </div>
+                </form>
+
+                <form method="post" action="{{ url_for('ui_delete_user', username=u.username) }}" onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger mt-2">
+                        Delete User
+                    </button>
+                </form>
                 {% else %}
                 <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="You cannot modify your own role">
                     Cannot Edit Own Role
                 </button>
                 {% endif %}
-            </form>
         </div>
         <div class="card-footer text-muted" style="font-size:0.8rem;">
             All role changes are recorded in the activity log immediately upon saving.

@@ -121,6 +121,8 @@ Login with any of the following usernames (no password required for demo):
 |----------|------|-----------|-------------|
 | `admin` | Admin, Manager | Administration | Full system access, can delete tasks, view all data |
 | `manager` | Manager, User | Clinic | Team oversight, view high/medium sensitivity tasks |
+| `doctor` | Doctor, User | Clinic | Clinical oversight, can view high/medium sensitivity tasks |
+| `nurse` | Nurse, User | Clinic | Clinical support, can view medium/low sensitivity tasks |
 | `clerk` | User | Clinic | Standard operations, view medium/low sensitivity tasks |
 | `staff` | User | Billing | Limited access, view only low/medium non-sensitive tasks |
 
@@ -158,6 +160,8 @@ This repository contains a Python-based prototype of the Vision Task system buil
    ```
 
    The application will be available at `http://127.0.0.1:5000/`
+
+   ✅ **Persistent storage**: Tasks are stored in a local SQLite database file (`vision_task.db`) so they survive server restarts.
 
 2. **Access the Web Interface**
    - Navigate to `http://127.0.0.1:5000/login`

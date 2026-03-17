@@ -3,7 +3,13 @@ from vision_task import create_app
 
 
 @pytest.fixture
-def app():
+def app(tmp_path):
+    # Use an isolated SQLite file per test to ensure a clean state.
+    db_path = tmp_path / "vision_task_test.db"
+    import os
+
+    os.environ["VISION_TASK_DB"] = str(db_path)
+
     app = create_app()
     app.config.update({"TESTING": True})
     return app
@@ -17,39 +23,45 @@ def client(app):
 def test_index(client):
     res = client.get("/")
     assert res.status_code == 200
-    assert b"Vision Task API is running" in res.data
+    assert res.is_json
+    assert res.json.get("message") == "Vision Task API"
 
 
 def test_unauthenticated_list(client):
-    res = client.get("/tasks")
+    res = client.get("/api/tasks")
     assert res.status_code == 401
 
 
 def test_create_and_list_task(client):
     headers = {"Authorization": "Bearer admin"}
+
     # create task
     res = client.post(
-        "/tasks",
+        "/api/tasks",
         json={"title": "Test", "description": "desc", "sensitivity": "low"},
         headers=headers,
     )
     assert res.status_code == 201
+    assert res.json.get("title") == "Test"
+
     # list tasks
-    res2 = client.get("/tasks", headers=headers)
+    res2 = client.get("/api/tasks", headers=headers)
     assert res2.status_code == 200
-    assert len(res2.json) == 1
-    assert res2.json[0]["title"] == "Test"
+    assert isinstance(res2.json.get("tasks"), list)
+    assert any(t["title"] == "Test" for t in res2.json["tasks"])
 
 
-def test_ui_dashboard(client):
-    # initial dashboard should work even without auth
+def test_ui_dashboard_redirects_when_unauthenticated(client):
     res = client.get("/dashboard")
-    assert res.status_code == 200
-    assert b"Tasks" in res.data
+    assert res.status_code == 302
+    assert "/login" in res.headers.get("Location", "")
 
 
-def test_ui_create_task(client):
-    # submit form to create task via UI
+def test_ui_create_task_with_login(client):
+    # Simulate a logged-in user
+    with client.session_transaction() as sess:
+        sess["username"] = "admin"
+
     res = client.post(
         "/dashboard",
         data={
@@ -61,3 +73,42 @@ def test_ui_create_task(client):
     )
     assert res.status_code == 200
     assert b"UI Task" in res.data
+
+
+def test_ui_dashboard_shows_clinical_quick_actions_for_doctor(client):
+    with client.session_transaction() as sess:
+        sess["username"] = "doctor"
+
+    res = client.get("/dashboard")
+    assert res.status_code == 200
+    assert b"Clinical Quick Actions" in res.data
+
+
+def test_admin_can_create_and_delete_user(client):
+    with client.session_transaction() as sess:
+        sess["username"] = "admin"
+
+    # Create a new user
+    res = client.post(
+        "/users/create",
+        data={
+            "username": "testuser",
+            "password": "Test1234!",
+            "department": "Clinic",
+            "roles": ["user"],
+        },
+        follow_redirects=True,
+    )
+    if res.status_code != 200:
+        print(res.data.decode())
+    assert res.status_code == 200
+    assert b"created successfully" in res.data
+
+    # Delete the new user
+    res = client.post(
+        "/users/testuser/delete",
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    assert b"deleted successfully" in res.data
+    assert b"View High-Sensitivity Tasks" in res.data

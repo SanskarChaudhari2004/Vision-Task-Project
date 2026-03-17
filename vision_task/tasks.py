@@ -1,13 +1,16 @@
 """Task management logic with healthcare workflow support."""
 from typing import Optional, List
 from .models import Task, TaskStatus, SensitivityLevel, User
-from .auth import require_role
 from .logger import AuditLog
+
+
+from .db import delete_task as db_delete_task, get_task_by_id, init_db, insert_task, list_tasks as db_list_tasks
 
 
 class TaskManager:
     def __init__(self):
-        self._tasks = []
+        # Ensure database is initialized whenever the task manager is created.
+        init_db()
 
     def _can_view_sensitivity(self, user: User, sensitivity: SensitivityLevel) -> bool:
         """Check if user can view tasks of given sensitivity level."""
@@ -18,17 +21,16 @@ class TaskManager:
         return True  # LOW sensitivity visible to all
 
     def list_tasks(self, user: User) -> List[Task]:
-        """
-        List tasks visible to user based on role and sensitivity permissions.
-        Healthcare admins see all tasks; others see based on sensitivity level.
-        """
+        """List tasks visible to user based on role and sensitivity permissions."""
         visible_tasks = []
-        for task in self._tasks:
+        for task in db_list_tasks():
             # Admins see all tasks
             if "admin" in user.roles:
                 visible_tasks.append(task)
+                continue
+
             # Users see tasks they created, are assigned to, or can access by sensitivity
-            elif (
+            if (
                 task.created_by == user.username
                 or task.assigned_to == user.username
                 or self._can_view_sensitivity(user, task.sensitivity)
@@ -50,7 +52,7 @@ class TaskManager:
         return visible_tasks
 
     def create_task(self, user: User, data: dict) -> Task:
-        """Create a task with comprehensive logging."""
+        """Create a task with comprehensive logging and persistent storage."""
         sensitivity = SensitivityLevel(data.get("sensitivity", "low"))
         task = Task(
             title=data.get("title", ""),
@@ -62,7 +64,8 @@ class TaskManager:
             status=TaskStatus.NEW,
             priority=data.get("priority", 0),
         )
-        self._tasks.append(task)
+
+        insert_task(task)
 
         # Log creation with full details
         AuditLog.log_action(
@@ -82,28 +85,27 @@ class TaskManager:
 
     def get_task(self, user: User, task_id: str) -> Optional[Task]:
         """Retrieve a single task with authorization check."""
-        for task in self._tasks:
-            if task.id == task_id:
-                # Check if user can access this task
-                if (
-                    task.created_by == user.username
-                    or task.assigned_to == user.username
-                    or "admin" in user.roles
-                    or self._can_view_sensitivity(user, task.sensitivity)
-                ):
-                    AuditLog.log_access_attempt(
-                        user.username, task.id, True, task.sensitivity.value
-                    )
-                    return task
-                else:
-                    AuditLog.log_access_attempt(
-                        user.username,
-                        task.id,
-                        False,
-                        task.sensitivity.value,
-                        reason="Insufficient clearance",
-                    )
-                    return None
+        task = get_task_by_id(task_id)
+        if not task:
+            return None
+
+        # Check if user can access this task
+        if (
+            task.created_by == user.username
+            or task.assigned_to == user.username
+            or "admin" in user.roles
+            or self._can_view_sensitivity(user, task.sensitivity)
+        ):
+            AuditLog.log_access_attempt(user.username, task.id, True, task.sensitivity.value)
+            return task
+
+        AuditLog.log_access_attempt(
+            user.username,
+            task.id,
+            False,
+            task.sensitivity.value,
+            reason="Insufficient clearance",
+        )
         return None
 
     def update_task(self, user: User, task_id: str, data: dict) -> Optional[Task]:
@@ -156,27 +158,30 @@ class TaskManager:
 
         task.updated_at = datetime.utcnow()
 
+        # Persist the updated task
+        insert_task(task)
+
         # Log all changes
         for field, (old_val, new_val) in changes.items():
             AuditLog.log_modification(user.username, task.id, field, str(old_val), str(new_val))
 
         return task
 
-    @require_role("admin")
     def delete_task(self, user: User, task_id: str) -> bool:
         """Delete task (admin only) with audit logging."""
-        for i, t in enumerate(self._tasks):
-            if t.id == task_id:
-                self._tasks.pop(i)
-                AuditLog.log_action(
-                    user_id=user.username,
-                    action="delete",
-                    resource_type="task",
-                    resource_id=task_id,
-                    sensitivity=t.sensitivity.value,
-                    details={"title": t.title},
-                )
-                return True
+        # Attempt to retrieve the task for logging
+        task = get_task_by_id(task_id)
+        deleted = db_delete_task(task_id)
+        if deleted:
+            AuditLog.log_action(
+                user_id=user.username,
+                action="delete",
+                resource_type="task",
+                resource_id=task_id,
+                sensitivity=(task.sensitivity.value if task else None),
+                details={"title": task.title} if task else None,
+            )
+            return True
 
         AuditLog.log_action(
             user_id=user.username,
