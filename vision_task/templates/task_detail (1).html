@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} — VisionTask{% endblock %}
+{% block content %}
+
+<!-- Breadcrumb -->
+<div style="margin-bottom:20px;font-size:.85rem;color:var(--muted);">
+    <a href="{{ url_for('ui_dashboard') }}" style="color:var(--brand);text-decoration:none;">Dashboard</a>
+    <span style="margin:0 8px;">›</span>
+    <span>{{ task.title }}</span>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
+
+    <!-- Left: Task detail -->
+    <div>
+        <div class="vt-card">
+            <div class="vt-card-header" style="justify-content:space-between;">
+                <span style="font-size:1.1rem;font-weight:700;">{{ task.title }}</span>
+                <span class="sens-badge badge-{{ task.sensitivity }}">
+                    {% if task.sensitivity == 'high' %}🔴 HIGH SENSITIVITY
+                    {% elif task.sensitivity == 'medium' %}🟡 MEDIUM
+                    {% else %}🟢 LOW{% endif %}
+                </span>
+            </div>
+            <div style="padding:24px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+                    <div>
+                        <div class="vt-label">Status</div>
+                        <span class="status-badge status-{{ task.status }}">{{ task.status | replace('_',' ') }}</span>
+                    </div>
+                    <div>
+                        <div class="vt-label">Priority</div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span class="prio-dot prio-{% if task.priority==2 %}high{% elif task.priority==1 %}medium{% else %}low{% endif %}"></span>
+                            {% if task.priority==2 %}<span style="color:var(--high);font-weight:600;">High</span>
+                            {% elif task.priority==1 %}<span style="color:var(--med);font-weight:600;">Medium</span>
+                            {% else %}<span style="color:var(--muted);">Low</span>{% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="vt-label">Created By</div>
+                        <div style="font-weight:500;">{{ task.created_by }}</div>
+                    </div>
+                    <div>
+                        <div class="vt-label">Assigned To</div>
+                        <div style="font-weight:500;">{{ task.assigned_to or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="vt-label">Department</div>
+                        <div>{{ task.department }}</div>
+                    </div>
+                    <div>
+                        <div class="vt-label">Task ID</div>
+                        <div style="font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);">{{ task.id[:18] }}…</div>
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid var(--border);padding-top:20px;margin-bottom:20px;">
+                    <div class="vt-label">Description</div>
+                    <p style="color:var(--muted);line-height:1.6;margin:0;">{{ task.description or '(No description provided)' }}</p>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:.8rem;color:var(--muted);border-top:1px solid var(--border);padding-top:16px;">
+                    <div><span style="font-weight:600;">Created:</span> {{ task.created_at[:19] | replace('T',' ') }}</div>
+                    <div><span style="font-weight:600;">Updated:</span> {{ task.updated_at[:19] | replace('T',' ') }}</div>
+                </div>
+            </div>
+            {% if task.sensitivity == 'high' %}
+            <div style="background:var(--high-bg);border-top:1px solid #f5c6c4;padding:12px 20px;font-size:.8rem;color:var(--high);display:flex;align-items:center;gap:8px;">
+                🔒 <strong>High-Sensitivity Task</strong> — All access and modifications require re-authentication and are fully logged for HIPAA compliance.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: Edit panel -->
+    <div>
+        {% if user.username == task.created_by or 'admin' in user.roles %}
+        <div class="vt-card" style="margin-bottom:16px;">
+            <div class="vt-card-header">Edit Task</div>
+            <div style="padding:20px;">
+                <form method="post" action="{{ url_for('ui_update_task', task_id=task.id) }}">
+                    <div style="margin-bottom:14px;">
+                        <label class="vt-label">Title</label>
+                        <input type="text" name="title" class="vt-input" value="{{ task.title }}" />
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label class="vt-label">Description</label>
+                        <textarea name="description" class="vt-textarea" rows="3" style="resize:vertical;">{{ task.description }}</textarea>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label class="vt-label">Status</label>
+                        <select name="status" class="vt-select">
+                            {% for s in ['new','assigned','in_progress','completed','cancelled'] %}
+                            <option value="{{ s }}" {% if task.status==s %}selected{% endif %}>{{ s | replace('_',' ') | title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label class="vt-label">Assigned To</label>
+                        <select name="assigned_to" class="vt-select">
+                            <option value="">Unassigned</option>
+                            {% for u in ['admin','manager','clerk','staff'] %}
+                            <option value="{{ u }}" {% if task.assigned_to==u %}selected{% endif %}>{{ u }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label class="vt-label">Priority</label>
+                        <select name="priority" class="vt-select">
+                            <option value="0" {% if task.priority==0 %}selected{% endif %}>Low</option>
+                            <option value="1" {% if task.priority==1 %}selected{% endif %}>Medium</option>
+                            <option value="2" {% if task.priority==2 %}selected{% endif %}>High</option>
+                        </select>
+                    </div>
+                    <div style="display:grid;gap:8px;">
+                        <button type="submit" class="btn-brand">Save Changes</button>
+                        <a href="{{ url_for('ui_dashboard') }}" class="btn-outline" style="text-align:center;display:block;">Back to Dashboard</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if 'admin' in user.roles %}
+        <div class="vt-card" style="border-color:#f5c6c4;">
+            <div class="vt-card-header" style="background:var(--high-bg);color:var(--high);">
+                ⚠ Danger Zone
+            </div>
+            <div style="padding:16px 20px;">
+                <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
+                    Permanently delete this task. This cannot be undone.
+                    {% if task.sensitivity == 'high' %}<br><strong style="color:var(--high);">Re-authentication required.</strong>{% endif %}
+                </p>
+                <form method="post" action="{{ url_for('ui_delete_task', task_id=task.id) }}"
+                      onsubmit="return confirm('Permanently delete this task? This cannot be undone.');">
+                    <button type="submit" class="btn-danger-soft" style="width:100%;">
+                        🗑 Delete Task
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="vt-card">
+            <div style="padding:20px;">
+                <div class="vt-alert vt-alert-info" style="margin-bottom:16px;">
+                    <strong>Read-Only View</strong><br>
+                    Only the task creator or administrators can edit this task.
+                </div>
+                <a href="{{ url_for('ui_dashboard') }}" class="btn-outline" style="display:block;text-align:center;">Back to Dashboard</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="vt-alert vt-alert-info" style="margin-top:20px;">
+    <strong>Audit Trail:</strong> All access and modifications are permanently recorded in the activity log. Records cannot be edited or deleted by any user.
+</div>
+
+{% endblock %}
