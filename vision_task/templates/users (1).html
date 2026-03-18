@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}User Management — VisionTask{% endblock %}
+{% block content %}
+
+<div style="margin-bottom:28px;">
+    <h1 class="vt-page-title">User Management</h1>
+    <p class="vt-subtitle">Manage Role-Based Access Control (RBAC) for all system users.</p>
+</div>
+
+{% if success_msg %}
+<div class="vt-alert vt-alert-success" style="margin-bottom:20px;">✅ {{ success_msg }}</div>
+{% endif %}
+{% if error_msg %}
+<div class="vt-alert vt-alert-danger" style="margin-bottom:20px;">⚠ {{ error_msg }}</div>
+{% endif %}
+
+<div class="grid-2">
+{% for u in users %}
+<div class="vt-card">
+    <div class="vt-card-header" style="
+        {% if 'admin' in u.roles %}background:#fdf0ef;border-bottom-color:#f5c6c4;
+        {% elif 'manager' in u.roles %}background:#eff6ff;border-bottom-color:#bfdbfe;
+        {% else %}background:#fafbfd;{% endif %}
+        justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;
+                {% if 'admin' in u.roles %}background:var(--high-bg);color:var(--high);
+                {% elif 'manager' in u.roles %}background:var(--brand-light);color:var(--brand);
+                {% else %}background:#f3f4f6;color:var(--muted);{% endif %}">
+                {{ u.username[0] | upper }}
+            </div>
+            <div>
+                <div style="font-weight:700;">{{ u.username }}</div>
+                <div style="font-size:.75rem;color:var(--muted);">{{ u.department }}</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:4px;">
+            {% for r in u.roles %}
+            <span style="padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:700;text-transform:uppercase;
+                {% if r == 'admin' %}background:var(--high-bg);color:var(--high);
+                {% elif r == 'manager' %}background:var(--brand-light);color:var(--brand);
+                {% else %}background:#f3f4f6;color:var(--muted);{% endif %}">{{ r }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div style="padding:20px;">
+        <!-- Clearance summary -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+            <span class="sens-badge {% if u.can_view_high_sensitivity %}badge-high{% else %}" style="background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb;">{% endif %}">
+                🔴 High: {% if u.can_view_high_sensitivity %}Allowed{% else %}Restricted{% endif %}
+            </span>
+            <span class="sens-badge {% if u.can_view_medium_sensitivity %}badge-medium{% else %}" style="background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb;">{% endif %}">
+                🟡 Medium: {% if u.can_view_medium_sensitivity %}Allowed{% else %}Restricted{% endif %}
+            </span>
+        </div>
+
+        <!-- Role form -->
+        <form method="post" action="{{ url_for('ui_update_role', username=u.username) }}">
+            <div class="vt-label" style="margin-bottom:10px;">Assign Roles</div>
+            <div style="display:flex;gap:20px;margin-bottom:18px;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:.875rem;font-weight:500;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer;">
+                    <input type="checkbox" name="roles" value="admin" {% if 'admin' in u.roles %}checked{% endif %}
+                           style="width:16px;height:16px;accent-color:var(--high);" />
+                    <span style="color:var(--high);font-weight:700;">Admin</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:.875rem;font-weight:500;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer;">
+                    <input type="checkbox" name="roles" value="manager" {% if 'manager' in u.roles %}checked{% endif %}
+                           style="width:16px;height:16px;accent-color:var(--brand);" />
+                    <span style="color:var(--brand);font-weight:700;">Manager</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:.875rem;font-weight:500;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer;">
+                    <input type="checkbox" name="roles" value="user" {% if 'user' in u.roles %}checked{% endif %}
+                           style="width:16px;height:16px;" />
+                    <span style="font-weight:600;">User</span>
+                </label>
+            </div>
+
+            {% if u.username != user.username %}
+            <button type="submit" class="btn-outline btn-sm" style="font-weight:600;">Save Role Changes</button>
+            {% else %}
+            <button type="button" class="btn-outline btn-sm" disabled style="opacity:.5;cursor:not-allowed;">Cannot Edit Own Role</button>
+            {% endif %}
+        </form>
+    </div>
+
+    <div style="background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;font-size:.75rem;color:var(--muted);">
+        Role changes take effect immediately · All changes are logged
+    </div>
+</div>
+{% endfor %}
+</div>
+
+<div class="vt-alert vt-alert-warn" style="margin-top:24px;">
+    <strong>⚠ Role Change Notice:</strong> Changes take effect immediately upon saving. The system prevents removing the last administrator account. All role changes are recorded in the activity log.
+</div>
+
+{% endblock %}
