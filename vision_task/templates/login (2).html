@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Sign In — VisionTask</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand: #1a4f8a; --brand-mid: #2d6bc4; --brand-light: #e8f0fb;
+            --border: #dde3f0; --text: #1c2a40; --muted: #7a8ba6; --surface: #f4f6fb;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: linear-gradient(135deg, #0e2d5a 0%, #1a4f8a 45%, #2563a8 100%);
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        .login-wrap { width: 100%; max-width: 420px; }
+        .login-brand {
+            text-align: center; margin-bottom: 28px;
+            color: rgba(255,255,255,.9);
+        }
+        .login-brand .logo-icon {
+            width: 56px; height: 56px; background: rgba(255,255,255,.15);
+            border-radius: 14px; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 14px; border: 1px solid rgba(255,255,255,.2);
+        }
+        .login-brand h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; }
+        .login-brand p { font-size: .85rem; opacity: .65; margin-top: 4px; }
+
+        .login-card {
+            background: #fff; border-radius: 16px;
+            box-shadow: 0 24px 60px rgba(0,0,0,.3); overflow: hidden;
+        }
+        .login-card-body { padding: 32px; }
+
+        .error-msg {
+            background: #fdf0ef; border: 1px solid #f5c6c4; color: #8b1a1a;
+            padding: 10px 14px; border-radius: 8px; font-size: .85rem; margin-bottom: 20px;
+        }
+        .field { margin-bottom: 18px; }
+        .field label { display: block; font-size: .73rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+        .field input {
+            width: 100%; border: 1px solid var(--border); border-radius: 8px;
+            padding: 10px 14px; font-size: .925rem; font-family: inherit;
+            color: var(--text); transition: border-color .15s, box-shadow .15s;
+        }
+        .field input:focus { outline: none; border-color: var(--brand-mid); box-shadow: 0 0 0 3px rgba(45,107,196,.12); }
+
+        .btn-signin {
+            width: 100%; background: var(--brand); color: #fff; border: none;
+            padding: 11px; border-radius: 8px; font-weight: 600; font-size: .95rem;
+            font-family: inherit; cursor: pointer; transition: background .15s; margin-top: 4px;
+        }
+        .btn-signin:hover { background: var(--brand-mid); }
+
+        .demo-creds {
+            background: var(--surface); border-top: 1px solid var(--border); padding: 20px 32px;
+        }
+        .demo-creds h4 { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; margin-bottom: 12px; }
+        .cred-table { width: 100%; border-collapse: collapse; }
+        .cred-table td { padding: 5px 0; font-size: .8rem; }
+        .cred-table td:first-child { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--brand); width: 80px; }
+        .cred-table td:nth-child(2) { font-family: 'DM Mono', monospace; color: var(--muted); width: 110px; }
+        .role-pill {
+            display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: .68rem;
+            font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+        }
+        .rp-admin   { background: #fdf0ef; color: #c0392b; }
+        .rp-manager { background: #eff6ff; color: #1d4ed8; }
+        .rp-user    { background: #f3f4f6; color: #4b5563; }
+
+        .security-note {
+            text-align: center; margin-top: 20px; font-size: .75rem; color: rgba(255,255,255,.45);
+        }
+    </style>
+</head>
+<body>
+<div class="login-wrap">
+    <div class="login-brand">
+        <div class="logo-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+            </svg>
+        </div>
+        <h1>VisionTask</h1>
+        <p>Secure Healthcare Task Management</p>
+    </div>
+
+    <div class="login-card">
+        <div class="login-card-body">
+            {% if error %}
+            <div class="error-msg">{{ error }}</div>
+            {% endif %}
+
+            <form method="post" action="{{ url_for('login') }}">
+                <div class="field">
+                    <label>Username</label>
+                    <input type="text" name="username" required autofocus placeholder="Enter username" />
+                </div>
+                <div class="field">
+                    <label>Password</label>
+                    <input type="password" name="password" required placeholder="Enter password" />
+                </div>
+                <button type="submit" class="btn-signin">Sign In</button>
+            </form>
+        </div>
+
+        <div class="demo-creds">
+            <h4>Demo Credentials</h4>
+            <table class="cred-table">
+                <tr>
+                    <td>admin</td>
+                    <td>Admin123!</td>
+                    <td><span class="role-pill rp-admin">Admin</span></td>
+                </tr>
+                <tr>
+                    <td>manager</td>
+                    <td>Manager123!</td>
+                    <td><span class="role-pill rp-manager">Manager</span></td>
+                </tr>
+                <tr>
+                    <td>clerk</td>
+                    <td>Clerk123!</td>
+                    <td><span class="role-pill rp-user">Clerk</span></td>
+                </tr>
+                <tr>
+                    <td>staff</td>
+                    <td>Staff123!</td>
+                    <td><span class="role-pill rp-user">Staff</span></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <p class="security-note">🔒 Passwords are hashed · All logins are logged for HIPAA compliance</p>
+</div>
+</body>
+</html>
