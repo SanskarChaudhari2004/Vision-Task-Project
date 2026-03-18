@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Activity Log — VisionTask{% endblock %}
+{% block content %}
+
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+    <div>
+        <h1 class="vt-page-title">Activity Log</h1>
+        <p class="vt-subtitle">{{ total }} total entries · non-editable HIPAA audit trail</p>
+    </div>
+    <a href="{{ url_for('ui_activity_log', export='txt', filter_user=filter_user, filter_action=filter_action, filter_status=filter_status) }}"
+       class="btn-outline" style="display:flex;align-items:center;gap:6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export .txt
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="vt-card" style="margin-bottom:20px;">
+    <div style="padding:16px 20px;">
+        <form method="get" action="{{ url_for('ui_activity_log') }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+                <div>
+                    <label class="vt-label">User</label>
+                    <select name="filter_user" class="vt-select">
+                        <option value="">All Users</option>
+                        {% for u in unique_users %}
+                        <option value="{{ u }}" {% if filter_user==u %}selected{% endif %}>{{ u }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="vt-label">Action</label>
+                    <select name="filter_action" class="vt-select">
+                        <option value="">All Actions</option>
+                        {% for a in unique_actions %}
+                        <option value="{{ a }}" {% if filter_action==a %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="vt-label">Status</label>
+                    <select name="filter_status" class="vt-select">
+                        <option value="">All</option>
+                        <option value="success" {% if filter_status=='success' %}selected{% endif %}>✅ Success</option>
+                        <option value="denied"  {% if filter_status=='denied'  %}selected{% endif %}>⚠ Denied</option>
+                        <option value="error"   {% if filter_status=='error'   %}selected{% endif %}>❌ Error</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button type="submit" class="btn-brand">Filter</button>
+                    <a href="{{ url_for('ui_activity_log') }}" class="btn-outline">Clear</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Log table -->
+<div class="vt-card">
+    <div style="overflow-x:auto;">
+        {% if entries %}
+        <table class="vt-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Resource</th>
+                    <th>Sensitivity</th>
+                    <th>Status</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for entry in entries %}
+            <tr style="{% if entry.status == 'denied' %}background:#fef9e7;{% elif entry.status == 'error' %}background:#fdf0ef;{% endif %}">
+                <td style="font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);white-space:nowrap;">
+                    {{ entry.timestamp[:19] | replace('T',' ') if entry.timestamp else '—' }}
+                </td>
+                <td style="font-weight:600;">{{ entry.user_id or '—' }}</td>
+                <td>
+                    <span style="
+                        display:inline-block;padding:2px 9px;border-radius:5px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+                        {% if entry.action in ['delete','reauth_required'] %}background:#fdf0ef;color:#c0392b;
+                        {% elif entry.action in ['update','update_role'] %}background:var(--med-bg);color:var(--med);
+                        {% elif entry.action == 'create' %}background:var(--low-bg);color:var(--low);
+                        {% elif entry.action in ['login','logout','reauth'] %}background:var(--brand-light);color:var(--brand);
+                        {% else %}background:#f3f4f6;color:#6b7280;{% endif %}
+                    ">{{ entry.action or '—' }}</span>
+                </td>
+                <td style="font-size:.8rem;">
+                    <span style="color:var(--muted);">{{ entry.resource_type }}</span>
+                    {% if entry.resource_id and entry.resource_id not in ['all','session'] %}
+                    <br><span style="font-family:'DM Mono',monospace;font-size:.7rem;color:#b0bec5;">{{ entry.resource_id[:14] }}…</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if entry.sensitivity %}
+                    <span class="sens-badge badge-{{ entry.sensitivity }}" style="font-size:.68rem;">{{ entry.sensitivity | upper }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    <span style="
+                        display:inline-block;padding:2px 8px;border-radius:5px;font-size:.7rem;font-weight:700;text-transform:uppercase;
+                        {% if entry.status == 'denied' %}background:var(--med-bg);color:var(--med);
+                        {% elif entry.status == 'error' %}background:var(--high-bg);color:var(--high);
+                        {% else %}background:var(--low-bg);color:var(--low);{% endif %}
+                    ">{{ entry.status or 'success' }}</span>
+                </td>
+                <td style="font-size:.75rem;color:var(--muted);max-width:200px;">
+                    {% if entry.details %}
+                    {% for k,v in entry.details.items() %}
+                    <span style="margin-right:8px;"><strong>{{ k }}:</strong> {{ v }}</span>
+                    {% endfor %}
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;padding:48px;color:var(--muted);">
+            No log entries match the selected filters.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="vt-alert vt-alert-info" style="margin-top:20px;">
+    <strong>Audit Trail Notice:</strong> Log entries are non-editable and cannot be deleted by any user, including administrators. All records are maintained for HIPAA compliance purposes.
+</div>
+
+{% endblock %}
