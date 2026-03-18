@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-
-{% block title %}Error - Vision Task{% endblock %}
-
+{% block title %}Error — VisionTask{% endblock %}
 {% block content %}
-<div class="alert alert-danger" role="alert">
-    <h4 class="alert-heading">Error</h4>
-    <p>{{ message }}</p>
-    <hr>
-    <a href="{{ url_for('ui_dashboard') }}" class="btn btn-primary">Return to Dashboard</a>
-    <a href="{{ url_for('index') }}" class="btn btn-secondary">Return Home</a>
+<div style="max-width:480px;margin:80px auto;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:16px;">⚠️</div>
+    <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:8px;">Access Denied</h2>
+    <p style="color:var(--muted);margin-bottom:28px;">{{ message }}</p>
+    <div style="display:flex;gap:12px;justify-content:center;">
+        <a href="{{ url_for('ui_dashboard') }}" class="btn-brand">Return to Dashboard</a>
+        <a href="{{ url_for('index') }}" class="btn-outline">Go Home</a>
+    </div>
 </div>
 {% endblock %}
