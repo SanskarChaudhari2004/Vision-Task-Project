@@ -322,12 +322,19 @@ def create_app():
         filter_sens     = request.args.get("sensitivity", "")
         filter_stat     = request.args.get("status", "")
         filter_assigned = request.args.get("assigned_to", "")   # teammate addition
+        sort_by = request.args.get("sort", "")
+        sort_order = request.args.get("order", "desc")
 
         tasks = task_manager.list_tasks(user)
         if q:               tasks = [t for t in tasks if q in t.title.lower() or q in (t.description or "").lower()]
         if filter_sens:     tasks = [t for t in tasks if t.sensitivity.value == filter_sens]
         if filter_stat:     tasks = [t for t in tasks if t.status.value == filter_stat]
         if filter_assigned: tasks = [t for t in tasks if (t.assigned_to or "") == filter_assigned]
+
+        if sort_by == "priority":
+            # Higher priority (2) should come first by default.
+            reverse = sort_order != "asc"
+            tasks = sorted(tasks, key=lambda t: t.priority, reverse=reverse)
 
         return render_template("dashboard.html", user=user,
                                tasks=[t.to_dict() for t in tasks],
@@ -336,6 +343,8 @@ def create_app():
                                filter_sensitivity=filter_sens,
                                filter_status=filter_stat,
                                filter_assigned=filter_assigned,
+                               sort_by=sort_by,
+                               sort_order=sort_order,
                                is_doctor="doctor" in user.roles,   # teammate addition
                                is_nurse="nurse"  in user.roles)    # teammate addition
 

@@ -140,7 +140,18 @@
                     <th>Sensitivity</th>
                     <th>Assigned To</th>
                     <th>Created By</th>
-                    <th>Priority</th>
+                    <th>
+                        {% set next_order = 'desc' %}
+                        {% if sort_by == 'priority' and sort_order == 'desc' %}
+                            {% set next_order = 'asc' %}
+                        {% endif %}
+                        <a href="{{ url_for('ui_dashboard', q=search_query, sensitivity=filter_sensitivity, status=filter_status, assigned_to=filter_assigned, sort='priority', order=next_order) }}" style="text-decoration:none;color:inherit;">
+                            Priority
+                            {% if sort_by == 'priority' %}
+                                {% if sort_order == 'desc' %}↓{% else %}↑{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
                     <th></th>
                 </tr>
             </thead>
