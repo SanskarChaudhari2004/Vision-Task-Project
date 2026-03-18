@@ -24,6 +24,7 @@ from .tasks import TaskManager
 from .logger import AuditLog
 from .models import Task, TaskStatus, SensitivityLevel
 from datetime import datetime, timedelta
+import os
 import uuid
 
 
@@ -151,8 +152,9 @@ def _seed_demo_tasks(task_manager):
             updated_at=datetime.utcnow() - timedelta(hours=12),
         ),
     ]
+    # Create demo tasks via the TaskManager so they are persisted and logged.
     for task in demo_tasks:
-        task_manager._tasks.append(task)
+        task_manager.create_task(get_user(task.created_by), task.to_dict())
         AuditLog.log_action("system", "create", "task", task.id,
                             sensitivity=task.sensitivity.value,
                             details={"title": task.title, "note": "demo seed"})
@@ -177,7 +179,7 @@ VALID_ROLES = {"admin", "manager", "user", "doctor", "nurse"}
 # ---------------------------------------------------------------------------
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "templates"))
     app.secret_key = "vision-task-demo-2026"
     task_manager = TaskManager()
     _seed_demo_tasks(task_manager)

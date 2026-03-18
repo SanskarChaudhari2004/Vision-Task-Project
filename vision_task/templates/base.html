@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>{% block title %}VisionTask{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand:       #1a4f8a;
+            --brand-light: #e8f0fb;
+            --brand-mid:   #2d6bc4;
+            --high:        #c0392b;
+            --high-bg:     #fdf0ef;
+            --med:         #d68910;
+            --med-bg:      #fef9e7;
+            --low:         #1e8449;
+            --low-bg:      #eafaf1;
+            --surface:     #f4f6fb;
+            --border:      #dde3f0;
+            --text:        #1c2a40;
+            --muted:       #7a8ba6;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text); min-height: 100vh; margin: 0; }
+
+        .vt-nav {
+            background: var(--brand); padding: 0 2rem; height: 58px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 12px rgba(26,79,138,.25); position: sticky; top: 0; z-index: 100;
+        }
+        .vt-nav-brand {
+            color: #fff; font-weight: 600; font-size: 1.05rem;
+            text-decoration: none; display: flex; align-items: center; gap: 8px;
+        }
+        .vt-nav-brand span { opacity: .6; font-weight: 300; font-size: .85rem; }
+        .vt-nav-links { display: flex; align-items: center; gap: 2px; }
+        .vt-nav-link {
+            color: rgba(255,255,255,.7); text-decoration: none; font-size: .875rem;
+            font-weight: 500; padding: 6px 14px; border-radius: 6px; transition: all .15s;
+        }
+        .vt-nav-link:hover, .vt-nav-link.active { background: rgba(255,255,255,.15); color: #fff; }
+        .vt-nav-user { color: rgba(255,255,255,.6); font-size: .8rem; margin-right: 8px; }
+        .vt-nav-user strong { color: #fff; }
+        .btn-logout {
+            background: rgba(255,255,255,.12); color: rgba(255,255,255,.85);
+            border: 1px solid rgba(255,255,255,.2); font-size: .8rem;
+            padding: 4px 14px; border-radius: 6px; text-decoration: none; transition: background .15s;
+        }
+        .btn-logout:hover { background: rgba(255,255,255,.22); color: #fff; }
+
+        .vt-main { max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+
+        .vt-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.04); overflow: hidden; }
+        .vt-card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: .95rem; display: flex; align-items: center; gap: 8px; background: #fafbfd; }
+
+        .sens-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: .72rem; font-weight: 700; font-family: 'DM Mono', monospace; letter-spacing: .03em; }
+        .badge-high   { background: var(--high-bg); color: var(--high); border: 1px solid #f5c6c4; }
+        .badge-medium { background: var(--med-bg);  color: var(--med);  border: 1px solid #f5dfa3; }
+        .badge-low    { background: var(--low-bg);  color: var(--low);  border: 1px solid #a9dfbf; }
+
+        .status-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+        .status-new         { background: #eef2ff; color: #4338ca; }
+        .status-assigned    { background: #eff6ff; color: #1d4ed8; }
+        .status-in_progress { background: #fff7ed; color: #c2410c; }
+        .status-completed   { background: var(--low-bg); color: var(--low); }
+        .status-cancelled   { background: #f3f4f6; color: #6b7280; }
+
+        .prio-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .prio-high   { background: var(--high); }
+        .prio-medium { background: var(--med);  }
+        .prio-low    { background: #9ca3af;     }
+
+        .vt-table { width: 100%; border-collapse: collapse; }
+        .vt-table th { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; padding: 10px 14px; border-bottom: 2px solid var(--border); background: #fafbfd; white-space: nowrap; }
+        .vt-table td { padding: 13px 14px; border-bottom: 1px solid var(--border); font-size: .875rem; vertical-align: middle; }
+        .vt-table tbody tr { transition: background .1s; }
+        .vt-table tbody tr:hover { background: var(--brand-light); }
+        .vt-table td.sens-col-high   { border-left: 3px solid var(--high); }
+        .vt-table td.sens-col-medium { border-left: 3px solid var(--med);  }
+        .vt-table td.sens-col-low    { border-left: 3px solid var(--low);  }
+        .task-link { color: var(--text); font-weight: 600; text-decoration: none; }
+        .task-link:hover { color: var(--brand-mid); }
+
+        .stat-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; }
+        .stat-card .num { font-size: 2.2rem; font-weight: 700; line-height: 1; letter-spacing: -.03em; }
+        .stat-card .lbl { font-size: .72rem; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+
+        .btn-brand { background: var(--brand); color: #fff; border: none; padding: 9px 22px; border-radius: 8px; font-weight: 600; font-size: .875rem; cursor: pointer; transition: background .15s; font-family: inherit; }
+        .btn-brand:hover { background: var(--brand-mid); }
+        .btn-outline { background: #fff; color: var(--brand); border: 1px solid var(--border); padding: 8px 18px; border-radius: 8px; font-weight: 500; font-size: .875rem; text-decoration: none; transition: all .15s; font-family: inherit; cursor: pointer; }
+        .btn-outline:hover { background: var(--brand-light); border-color: var(--brand); color: var(--brand); }
+        .btn-danger-soft { background: var(--high-bg); color: var(--high); border: 1px solid #f5c6c4; padding: 8px 18px; border-radius: 8px; font-weight: 600; font-size: .875rem; cursor: pointer; font-family: inherit; transition: background .15s; }
+        .btn-danger-soft:hover { background: #f9d5d3; }
+        .btn-sm { padding: 5px 12px; font-size: .8rem; }
+
+        .vt-input, .vt-select, .vt-textarea {
+            border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+            font-size: .875rem; font-family: inherit; width: 100%; background: #fff;
+            color: var(--text); transition: border-color .15s, box-shadow .15s;
+        }
+        .vt-input:focus, .vt-select:focus, .vt-textarea:focus {
+            outline: none; border-color: var(--brand-mid); box-shadow: 0 0 0 3px rgba(45,107,196,.12);
+        }
+        .vt-label { font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; display: block; }
+
+        .vt-alert { padding: 12px 16px; border-radius: 8px; font-size: .85rem; border: 1px solid; margin-bottom: 16px; }
+        .vt-alert-info    { background: var(--brand-light); border-color: #b8d0f5; color: #1a4780; }
+        .vt-alert-warn    { background: var(--med-bg); border-color: #f5e18a; color: #7d5800; }
+        .vt-alert-danger  { background: var(--high-bg); border-color: #f5c6c4; color: #8b1a1a; }
+        .vt-alert-success { background: var(--low-bg); border-color: #a9dfbf; color: #145a32; }
+
+        .vt-page-title { font-size: 1.6rem; font-weight: 700; letter-spacing: -.025em; margin-bottom: 4px; }
+        .vt-subtitle { color: var(--muted); font-size: .875rem; }
+
+        .vt-footer { text-align: center; color: var(--muted); font-size: .75rem; padding: 24px 0; border-top: 1px solid var(--border); margin-top: 60px; }
+
+        .lock-icon { display: inline-block; font-size: .8em; margin-left: 4px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        @media (max-width: 768px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+{% if session.get('username') %}
+<nav class="vt-nav">
+    <a class="vt-nav-brand" href="{{ url_for('ui_dashboard') }}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+        </svg>
+        VisionTask <span>· Healthcare</span>
+    </a>
+    <div class="vt-nav-links">
+        <a class="vt-nav-link {% if request.endpoint == 'ui_dashboard' %}active{% endif %}" href="{{ url_for('ui_dashboard') }}">Dashboard</a>
+        <a class="vt-nav-link {% if request.endpoint == 'ui_activity_log' %}active{% endif %}" href="{{ url_for('ui_activity_log') }}">Activity Log</a>
+        <a class="vt-nav-link {% if request.endpoint == 'ui_users' %}active{% endif %}" href="{{ url_for('ui_users') }}">Users</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <span class="vt-nav-user">Signed in as <strong>{{ session.get('username') }}</strong></span>
+        <a class="btn-logout" href="{{ url_for('logout') }}">Sign Out</a>
+    </div>
+</nav>
+{% endif %}
+
+<main class="vt-main">{% block content %}{% endblock %}</main>
+
+<div class="vt-footer">
+    VisionTask — Secure Healthcare Task Management · All activity logged for HIPAA compliance
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

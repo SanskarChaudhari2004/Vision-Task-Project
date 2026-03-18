@@ -1,249 +1,243 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - Vision Task{% endblock %}
-
+{% block title %}Dashboard — VisionTask{% endblock %}
 {% block content %}
-<div class="row mb-3">
-    <div class="col-md-8">
-        <h1 class="mb-0">Task Dashboard</h1>
-        <p class="text-muted">
+
+<!-- Header -->
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">
+    <div>
+        <h1 class="vt-page-title">Task Dashboard</h1>
+        <p class="vt-subtitle">
             {{ user.username }} &middot; {{ user.department }}
-            {% if 'admin' in user.roles %}<span class="badge bg-danger ms-1">Admin</span>{% endif %}
-            {% if 'manager' in user.roles %}<span class="badge bg-primary ms-1">Manager</span>{% endif %}
+            {% if 'admin' in user.roles %}
+            <span style="background:#fdf0ef;color:#c0392b;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px;">Admin</span>
+            {% elif 'manager' in user.roles %}
+            <span style="background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px;">Manager</span>
+            {% elif 'doctor' in user.roles %}
+            <span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px;">Doctor</span>
+            {% elif 'nurse' in user.roles %}
+            <span style="background:#eff6ff;color:#075985;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px;">Nurse</span>
+            {% endif %}
         </p>
     </div>
-    <div class="col-md-4">
-        <div class="card border-0 bg-light">
-            <div class="card-body py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex justify-content-between text-center flex-grow-1">
-                        <div>
-                            <div class="fw-bold fs-4">{{ stats.total_tasks }}</div>
-                            <small class="text-muted">Total</small>
-                        </div>
-                        <div>
-                            <div class="fw-bold fs-4 text-primary">{{ stats.assigned_to_user }}</div>
-                            <small class="text-muted">Assigned to You</small>
-                        </div>
-                        <div>
-                            <div class="fw-bold fs-4 text-success">{{ stats.created_by_user }}</div>
-                            <small class="text-muted">Created by You</small>
-                        </div>
-                    </div>
-                    <div class="ms-3">
-                        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-danger">Logout</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+</div>
 
-        {% if is_doctor or is_nurse %}
-        <div class="card mt-3">
-            <div class="card-header">
-                Clinical Quick Actions
-            </div>
-            <div class="card-body">
-                {% if is_doctor %}
-                <p class="mb-2">As a <strong>doctor</strong>, you can quickly focus on high-sensitivity clinical tasks.</p>
-                <a href="{{ url_for('ui_dashboard') }}?sensitivity=high" class="btn btn-sm btn-danger w-100 mb-2">
-                    View High-Sensitivity Tasks
-                </a>
-                {% endif %}
+<!-- Stats row -->
+<div class="grid-4" style="margin-bottom:28px;">
+    <div class="stat-card">
+        <div class="num">{{ stats.total_tasks }}</div>
+        <div class="lbl">Total Tasks</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#c2410c;">{{ stats.by_status.get('in_progress', 0) }}</div>
+        <div class="lbl">In Progress</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#1d4ed8;">{{ stats.assigned_to_user }}</div>
+        <div class="lbl">Assigned to You</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#c0392b;">{{ stats.by_sensitivity.get('high', 0) }}</div>
+        <div class="lbl">High Sensitivity</div>
+    </div>
+</div>
 
-                {% if is_nurse %}
-                <p class="mb-2">As a <strong>nurse</strong>, you can quickly focus on medium-sensitivity clinical tasks.</p>
-                <a href="{{ url_for('ui_dashboard') }}?sensitivity=medium" class="btn btn-sm btn-info w-100 mb-2">
-                    View Medium-Sensitivity Tasks
-                </a>
-                {% endif %}
-
-                <a href="{{ url_for('ui_dashboard') }}?assigned_to={{ user.username }}" class="btn btn-sm btn-outline-primary w-100">
-                    View Tasks Assigned to Me
-                </a>
-            </div>
-        </div>
+<!-- Clinical Quick Actions (teammate addition — doctor/nurse only) -->
+{% if is_doctor or is_nurse %}
+<div class="vt-card" style="margin-bottom:24px;border-color:{% if is_doctor %}#a7f3d0{% else %}#bfdbfe{% endif %};">
+    <div class="vt-card-header" style="background:{% if is_doctor %}#f0fdf4{% else %}#eff6ff{% endif %};">
+        {% if is_doctor %}🩺{% else %}💉{% endif %}
+        Clinical Quick Actions
+    </div>
+    <div style="padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;">
+        {% if is_doctor %}
+        <a href="{{ url_for('ui_dashboard') }}?sensitivity=high" class="btn-brand" style="background:#c0392b;font-size:.85rem;">
+            🔴 View High-Sensitivity Tasks
+        </a>
         {% endif %}
+        {% if is_nurse %}
+        <a href="{{ url_for('ui_dashboard') }}?sensitivity=medium" class="btn-brand" style="background:#1d70b8;font-size:.85rem;">
+            🟡 View Medium-Sensitivity Tasks
+        </a>
+        {% endif %}
+        <a href="{{ url_for('ui_dashboard') }}?assigned_to={{ user.username }}" class="btn-outline" style="font-size:.85rem;">
+            View Tasks Assigned to Me
+        </a>
     </div>
-</div>
-
-<!-- Search & Filter Bar (UC-10) -->
-<form method="get" action="{{ url_for('ui_dashboard') }}" class="card card-body bg-light mb-4">
-    <div class="row g-2 align-items-end">
-        <div class="col-md-5">
-            <label class="form-label fw-semibold mb-1">Search Tasks</label>
-            <input type="text" name="q" class="form-control"
-                   placeholder="Search by title or description…"
-                   value="{{ search_query }}" />
-        </div>
-        <div class="col-md-3">
-            <label class="form-label fw-semibold mb-1">Sensitivity</label>
-            <select name="sensitivity" class="form-select">
-                <option value="">All Levels</option>
-                <option value="low"    {% if filter_sensitivity == 'low'    %}selected{% endif %}>Low</option>
-                <option value="medium" {% if filter_sensitivity == 'medium' %}selected{% endif %}>Medium</option>
-                <option value="high"   {% if filter_sensitivity == 'high'   %}selected{% endif %}>High</option>
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label class="form-label fw-semibold mb-1">Status</label>
-            <select name="status" class="form-select">
-                <option value="">All Statuses</option>
-                <option value="new"         {% if filter_status == 'new'         %}selected{% endif %}>New</option>
-                <option value="assigned"    {% if filter_status == 'assigned'    %}selected{% endif %}>Assigned</option>
-                <option value="in_progress" {% if filter_status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                <option value="completed"   {% if filter_status == 'completed'   %}selected{% endif %}>Completed</option>
-                <option value="cancelled"   {% if filter_status == 'cancelled'   %}selected{% endif %}>Cancelled</option>
-            </select>
-        </div>
-        <div class="col-md-2 d-flex gap-1">
-            <button type="submit" class="btn btn-primary w-100">Search</button>
-            <a href="{{ url_for('ui_dashboard') }}" class="btn btn-outline-secondary" title="Clear filters">✕</a>
-        </div>
-    </div>
-</form>
-
-{% if search_query or filter_sensitivity or filter_status or filter_assigned %}
-<div class="alert alert-info py-2 mb-3">
-    Showing filtered results.
-    {% if search_query %} Query: <strong>{{ search_query }}</strong>{% endif %}
-    {% if filter_sensitivity %} Sensitivity: <strong>{{ filter_sensitivity }}</strong>{% endif %}
-    {% if filter_status %} Status: <strong>{{ filter_status }}</strong>{% endif %}
-    {% if filter_assigned %} Assigned to: <strong>{{ filter_assigned }}</strong>{% endif %}
-    &mdash; <a href="{{ url_for('ui_dashboard') }}">Clear all filters</a>
 </div>
 {% endif %}
 
-{% if search_query or filter_sensitivity or filter_status %}
-<div class="alert alert-info py-2 mb-3">
-    Showing filtered results.
-    {% if search_query %} Query: <strong>{{ search_query }}</strong>{% endif %}
-    {% if filter_sensitivity %} Sensitivity: <strong>{{ filter_sensitivity }}</strong>{% endif %}
-    {% if filter_status %} Status: <strong>{{ filter_status }}</strong>{% endif %}
-    &mdash; <a href="{{ url_for('ui_dashboard') }}">Clear all filters</a>
-</div>
-{% endif %}
-
-<h2>Tasks</h2>
-<div class="table-responsive">
-    <table class="table table-striped table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Sensitivity</th>
-                <th>Assigned To</th>
-                <th>Created By</th>
-                <th>Priority</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for task in tasks %}
-        <tr>
-            <td>
-                <a href="{{ url_for('ui_view_task', task_id=task.id) }}" class="fw-semibold text-decoration-none">
-                    {{ task.title }}
-                </a>
-                {% if task.sensitivity == 'high' %}
-                <span class="badge bg-danger ms-1" title="Re-authentication required">🔒</span>
-                {% endif %}
-            </td>
-            <td>
-                <span class="badge
-                    {% if task.status == 'completed' %}bg-success
-                    {% elif task.status == 'in_progress' %}bg-primary
-                    {% elif task.status == 'cancelled' %}bg-secondary
-                    {% elif task.status == 'assigned' %}bg-info text-dark
-                    {% else %}bg-light text-dark border{% endif %}">
-                    {{ task.status | replace('_', ' ') | title }}
-                </span>
-            </td>
-            <td>
-                <span class="badge
-                    {% if task.sensitivity == 'high' %}bg-danger
-                    {% elif task.sensitivity == 'medium' %}bg-warning text-dark
-                    {% else %}bg-success{% endif %}">
-                    {{ task.sensitivity | title }}
-                </span>
-            </td>
-            <td>{{ task.assigned_to or '—' }}</td>
-            <td class="text-muted">{{ task.created_by }}</td>
-            <td>
-                {% if task.priority == 2 %}<span class="text-danger fw-bold">High</span>
-                {% elif task.priority == 1 %}<span class="text-warning fw-bold">Medium</span>
-                {% else %}<span class="text-muted">Low</span>{% endif %}
-            </td>
-            <td>
-                <a href="{{ url_for('ui_view_task', task_id=task.id) }}" class="btn btn-sm btn-outline-primary">View</a>
-            </td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="7" class="text-center text-muted py-4">
-                {% if search_query or filter_sensitivity or filter_status %}
-                No tasks match your search criteria.
-                {% else %}
-                No tasks yet. Create one below.
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<hr />
-
-<h2>Create New Task</h2>
-<div class="card">
-    <div class="card-body">
-        <form method="post" action="{{ url_for('ui_create_task') }}">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" name="title" required placeholder="Task title" />
+<!-- Search & Filter (UC-10) -->
+<div class="vt-card" style="margin-bottom:24px;">
+    <div class="vt-card-header">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Search &amp; Filter
+    </div>
+    <div style="padding:16px 20px;">
+        <form method="get" action="{{ url_for('ui_dashboard') }}">
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end;">
+                <div>
+                    <label class="vt-label">Search</label>
+                    <input type="text" name="q" class="vt-input" placeholder="Search by title or description…" value="{{ search_query }}" />
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Assign To</label>
-                    <select class="form-select" name="assigned_to">
-                        <option value="">Unassigned</option>
-                        <option value="admin">Admin</option>
-                        <option value="manager">Manager</option>
-                        <option value="doctor">Doctor</option>
-                        <option value="nurse">Nurse</option>
-                        <option value="clerk">Clerk</option>
-                        <option value="staff">Staff</option>
+                <div>
+                    <label class="vt-label">Sensitivity</label>
+                    <select name="sensitivity" class="vt-select">
+                        <option value="">All Levels</option>
+                        <option value="high"   {% if filter_sensitivity=='high'   %}selected{% endif %}>🔴 High</option>
+                        <option value="medium" {% if filter_sensitivity=='medium' %}selected{% endif %}>🟡 Medium</option>
+                        <option value="low"    {% if filter_sensitivity=='low'    %}selected{% endif %}>🟢 Low</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Sensitivity Level</label>
-                    <select class="form-select" name="sensitivity">
-                        <option value="low">🟢 Low — Standard operations</option>
-                        <option value="medium">🟡 Medium — Internal data</option>
-                        <option value="high">🔴 High — Confidential / HIPAA</option>
+                <div>
+                    <label class="vt-label">Status</label>
+                    <select name="status" class="vt-select">
+                        <option value="">All Statuses</option>
+                        <option value="new"         {% if filter_status=='new'         %}selected{% endif %}>New</option>
+                        <option value="assigned"    {% if filter_status=='assigned'    %}selected{% endif %}>Assigned</option>
+                        <option value="in_progress" {% if filter_status=='in_progress' %}selected{% endif %}>In Progress</option>
+                        <option value="completed"   {% if filter_status=='completed'   %}selected{% endif %}>Completed</option>
+                        <option value="cancelled"   {% if filter_status=='cancelled'   %}selected{% endif %}>Cancelled</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Priority</label>
-                    <select class="form-select" name="priority">
-                        <option value="0">Low</option>
-                        <option value="1">Medium</option>
-                        <option value="2">High</option>
-                    </select>
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label fw-semibold">Description</label>
-                    <textarea class="form-control" name="description" rows="3" placeholder="Optional task description"></textarea>
-                </div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-primary px-4">Create Task</button>
+                <div style="display:flex;gap:8px;padding-top:1px;">
+                    <button type="submit" class="btn-brand">Search</button>
+                    {% if search_query or filter_sensitivity or filter_status or filter_assigned %}
+                    <a href="{{ url_for('ui_dashboard') }}" class="btn-outline" style="white-space:nowrap;">Clear</a>
+                    {% endif %}
                 </div>
             </div>
         </form>
     </div>
 </div>
 
-<div class="alert alert-info mt-4" style="font-size:0.85rem;">
-    <strong>🔒 HIPAA Security Notice:</strong> All task actions are logged for compliance.
-    High-sensitivity tasks require re-authentication before access or modification.
+<!-- Active filter summary (single block — bug fixed from teammate's duplicate) -->
+{% if search_query or filter_sensitivity or filter_status or filter_assigned %}
+<div class="vt-alert vt-alert-info" style="margin-bottom:16px;">
+    Showing filtered results
+    {% if search_query %}— query: <strong>{{ search_query }}</strong>{% endif %}
+    {% if filter_sensitivity %}— sensitivity: <strong>{{ filter_sensitivity }}</strong>{% endif %}
+    {% if filter_status %}— status: <strong>{{ filter_status }}</strong>{% endif %}
+    {% if filter_assigned %}— assigned to: <strong>{{ filter_assigned }}</strong>{% endif %}
+    &nbsp;<a href="{{ url_for('ui_dashboard') }}" style="color:inherit;font-weight:600;">Clear filters</a>
 </div>
+{% endif %}
+
+<!-- Tasks table -->
+<div class="vt-card" style="margin-bottom:32px;">
+    <div class="vt-card-header" style="justify-content:space-between;">
+        <span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Tasks
+            <span style="background:var(--brand-light);color:var(--brand);padding:1px 8px;border-radius:20px;font-size:.72rem;font-weight:700;margin-left:8px;">{{ tasks|length }}</span>
+        </span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="vt-table">
+            <thead>
+                <tr>
+                    <th style="width:36%">Task</th>
+                    <th>Status</th>
+                    <th>Sensitivity</th>
+                    <th>Assigned To</th>
+                    <th>Created By</th>
+                    <th>Priority</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for task in tasks %}
+            <tr>
+                <td class="sens-col-{{ task.sensitivity }}">
+                    <a class="task-link" href="{{ url_for('ui_view_task', task_id=task.id) }}">{{ task.title }}</a>
+                    {% if task.sensitivity == 'high' %}
+                    <span style="font-size:.7rem;color:var(--high);margin-left:4px;" title="Re-authentication required">🔒</span>
+                    {% endif %}
+                    <div style="font-size:.75rem;color:var(--muted);margin-top:2px;">{{ task.department }}</div>
+                </td>
+                <td><span class="status-badge status-{{ task.status }}">{{ task.status | replace('_',' ') }}</span></td>
+                <td>
+                    <span class="sens-badge badge-{{ task.sensitivity }}">
+                        {% if task.sensitivity=='high' %}🔴{% elif task.sensitivity=='medium' %}🟡{% else %}🟢{% endif %}
+                        {{ task.sensitivity | upper }}
+                    </span>
+                </td>
+                <td style="color:var(--muted);">{{ task.assigned_to or '—' }}</td>
+                <td style="color:var(--muted);">{{ task.created_by }}</td>
+                <td>
+                    <span class="prio-dot prio-{% if task.priority==2 %}high{% elif task.priority==1 %}medium{% else %}low{% endif %}"></span>
+                    {% if task.priority==2 %}<span style="color:var(--high);font-weight:600;">High</span>
+                    {% elif task.priority==1 %}<span style="color:var(--med);font-weight:600;">Medium</span>
+                    {% else %}<span style="color:var(--muted);">Low</span>{% endif %}
+                </td>
+                <td><a href="{{ url_for('ui_view_task', task_id=task.id) }}" class="btn-outline btn-sm">View</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">
+                {% if search_query or filter_sensitivity or filter_status or filter_assigned %}
+                No tasks match your filters.
+                {% else %}No tasks yet. Create one below.{% endif %}
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create task -->
+<div class="vt-card">
+    <div class="vt-card-header">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Create New Task
+    </div>
+    <div style="padding:24px;">
+        <form method="post" action="{{ url_for('ui_create_task') }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div>
+                    <label class="vt-label">Title <span style="color:#c0392b;">*</span></label>
+                    <input type="text" name="title" class="vt-input" required placeholder="Task title" />
+                </div>
+                <div>
+                    <label class="vt-label">Assign To</label>
+                    <select name="assigned_to" class="vt-select">
+                        <option value="">Unassigned</option>
+                        <option value="admin">admin</option>
+                        <option value="manager">manager</option>
+                        <option value="doctor">doctor</option>
+                        <option value="nurse">nurse</option>
+                        <option value="clerk">clerk</option>
+                        <option value="staff">staff</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div>
+                    <label class="vt-label">Sensitivity</label>
+                    <select name="sensitivity" class="vt-select">
+                        <option value="low">🟢 Low — Standard</option>
+                        <option value="medium">🟡 Medium — Internal</option>
+                        <option value="high">🔴 High — HIPAA / Confidential</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="vt-label">Priority</label>
+                    <select name="priority" class="vt-select">
+                        <option value="0">Low</option>
+                        <option value="1">Medium</option>
+                        <option value="2">High</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label class="vt-label">Description</label>
+                <textarea name="description" class="vt-textarea" rows="3" placeholder="Optional task description…" style="resize:vertical;"></textarea>
+            </div>
+            <button type="submit" class="btn-brand">Create Task</button>
+        </form>
+    </div>
+</div>
+
+<div class="vt-alert vt-alert-info" style="margin-top:20px;">
+    🔒 <strong>HIPAA Notice:</strong> All task actions are logged. High-sensitivity tasks require re-authentication before access or modification.
+</div>
+
 {% endblock %}

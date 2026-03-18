@@ -12,11 +12,17 @@ from typing import List, Optional
 
 from .models import Task, SensitivityLevel, TaskStatus, User
 
-DB_PATH = os.environ.get("VISION_TASK_DB") or "vision_task.db"
+def _get_db_path() -> str:
+    """Return the SQLite database path.
+
+    This reads the VISION_TASK_DB environment variable each time so that the
+    database file can be changed at runtime (e.g., tests setting a temp file).
+    """
+    return os.environ.get("VISION_TASK_DB") or "vision_task.db"
 
 
 def _get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(_get_db_path(), detect_types=sqlite3.PARSE_DECLTYPES)
     conn.row_factory = sqlite3.Row
     return conn
 

@@ -21,10 +21,10 @@ def client(app):
 
 
 def test_index(client):
+    # The UI entrypoint redirects unauthenticated users to the login page.
     res = client.get("/")
-    assert res.status_code == 200
-    assert res.is_json
-    assert res.json.get("message") == "Vision Task API"
+    assert res.status_code == 302
+    assert "/login" in res.headers.get("Location", "")
 
 
 def test_unauthenticated_list(client):
@@ -111,4 +111,5 @@ def test_admin_can_create_and_delete_user(client):
     )
     assert res.status_code == 200
     assert b"deleted successfully" in res.data
-    assert b"View High-Sensitivity Tasks" in res.data
+    # Verify we're back on the user management page
+    assert b"User Management" in res.data
