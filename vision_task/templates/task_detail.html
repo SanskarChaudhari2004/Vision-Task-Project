@@ -80,6 +80,11 @@
             <div class="vt-card-header">Edit Task</div>
             <div style="padding:20px;">
                 <form method="post" action="{{ url_for('ui_update_task', task_id=task.id) }}">
+                    {% if task.status != 'completed' %}
+                    <div style="margin-bottom:14px;">
+                        <button type="submit" class="btn-brand" formaction="{{ url_for('ui_complete_task', task_id=task.id) }}" style="width:100%;">Complete Task</button>
+                    </div>
+                    {% endif %}
                     <div style="margin-bottom:14px;">
                         <label class="vt-label">Title</label>
                         <input type="text" name="title" class="vt-input" value="{{ task.title }}" />

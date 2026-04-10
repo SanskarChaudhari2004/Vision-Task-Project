@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Performance Analytics — VisionTask{% endblock %}
+{% block content %}
+
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;gap:16px;flex-wrap:wrap;">
+    <div>
+        <h1 class="vt-page-title">Performance Analytics</h1>
+        <p class="vt-subtitle">Operational performance view for visible tasks and team workload.</p>
+    </div>
+    <a href="{{ url_for('ui_dashboard') }}" class="btn-outline">Back to Dashboard</a>
+</div>
+
+<div class="grid-4" style="margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="num">{{ analytics.kpis.total_visible_tasks }}</div>
+        <div class="lbl">Visible Tasks</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#c2410c;">{{ analytics.kpis.open_tasks }}</div>
+        <div class="lbl">Open Tasks</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#1e8449;">{{ analytics.kpis.completed_tasks }}</div>
+        <div class="lbl">Completed Tasks</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#1d4ed8;">{{ analytics.kpis.completion_rate }}%</div>
+        <div class="lbl">Completion Rate</div>
+    </div>
+</div>
+
+<div class="grid-4" style="margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="num">{{ analytics.kpis.created_last_7d }}</div>
+        <div class="lbl">Created Last 7 Days</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#166534;">{{ analytics.kpis.completed_last_7d }}</div>
+        <div class="lbl">Completed Last 7 Days</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#7c3aed;">{{ analytics.kpis.avg_cycle_time_hours }}</div>
+        <div class="lbl">Avg Cycle Time (Hours)</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" style="color:#c0392b;">{{ analytics.kpis.high_sensitivity_open }}</div>
+        <div class="lbl">Open High Sensitivity</div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:24px;">
+    <div class="vt-card">
+        <div class="vt-card-header">Backlog by Priority</div>
+        <div style="padding:18px 20px;display:grid;gap:10px;">
+            {% for label, color, value in [("High", "#c0392b", analytics.backlog_by_priority.high), ("Medium", "#d68910", analytics.backlog_by_priority.medium), ("Low", "#1e8449", analytics.backlog_by_priority.low)] %}
+            <div>
+                <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+                    <span style="font-weight:600;color:var(--text);">{{ label }}</span>
+                    <span style="color:var(--muted);">{{ value }}</span>
+                </div>
+                {% set width = (value * 100 / analytics.kpis.open_tasks) if analytics.kpis.open_tasks else 0 %}
+                <div style="height:10px;background:#eef2f8;border-radius:999px;overflow:hidden;">
+                    <div style="height:100%;width:{{ width }}%;background:{{ color }};"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="vt-card">
+        <div class="vt-card-header">Open Backlog by Department</div>
+        <div style="padding:18px 20px;display:grid;gap:10px;">
+            {% for dept, count in analytics.backlog_by_department.items() %}
+            <div>
+                <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+                    <span style="font-weight:600;color:var(--text);">{{ dept }}</span>
+                    <span style="color:var(--muted);">{{ count }}</span>
+                </div>
+                {% set width = (count * 100 / analytics.kpis.open_tasks) if analytics.kpis.open_tasks else 0 %}
+                <div style="height:10px;background:#eef2f8;border-radius:999px;overflow:hidden;">
+                    <div style="height:100%;width:{{ width }}%;background:var(--brand-mid);"></div>
+                </div>
+            </div>
+            {% else %}
+            <div style="color:var(--muted);font-size:.85rem;">No backlog data available.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:24px;">
+    <div class="vt-card">
+        <div class="vt-card-header">Assignee Workload (Open Tasks)</div>
+        <div style="padding:18px 20px;display:grid;gap:10px;">
+            {% for assignee, count in analytics.assignee_load.items() %}
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:8px;">
+                <span style="font-weight:600;color:var(--text);">{{ assignee }}</span>
+                <span class="sens-badge badge-medium">{{ count }}</span>
+            </div>
+            {% else %}
+            <div style="color:var(--muted);font-size:.85rem;">No open assignments.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="vt-card">
+        <div class="vt-card-header">7-Day Throughput Trend</div>
+        <div style="padding:18px 20px;display:grid;gap:10px;">
+            {% for i in range(analytics.trend_last_7d.labels|length) %}
+            {% set label = analytics.trend_last_7d.labels[i] %}
+            {% set created = analytics.trend_last_7d.created[i] %}
+            {% set completed = analytics.trend_last_7d.completed[i] %}
+            {% set max_day = [created, completed, 1]|max %}
+            <div style="display:grid;grid-template-columns:96px 1fr;align-items:center;gap:10px;">
+                <div style="font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);">{{ label[5:] }}</div>
+                <div>
+                    <div style="height:8px;background:#eff4fb;border-radius:999px;position:relative;margin-bottom:4px;overflow:hidden;">
+                        <div style="height:100%;width:{{ (created * 100 / max_day) }}%;background:#60a5fa;"></div>
+                    </div>
+                    <div style="height:8px;background:#eff8f0;border-radius:999px;position:relative;overflow:hidden;">
+                        <div style="height:100%;width:{{ (completed * 100 / max_day) }}%;background:#22c55e;"></div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            <div style="font-size:.75rem;color:var(--muted);margin-top:4px;">
+                Blue = created, Green = completed
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="vt-alert vt-alert-info">
+    <strong>Analytics Scope:</strong> Metrics are calculated from tasks currently visible to your account and permissions.
+</div>
+
+{% endblock %}

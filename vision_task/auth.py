@@ -2,15 +2,25 @@
 from functools import wraps
 from flask import request, jsonify, session
 from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash, check_password_hash
+import bcrypt
+from werkzeug.security import check_password_hash
 from .models import User
 from .db import get_user as db_get_user, list_users as db_list_users, insert_user as db_insert_user, delete_user as db_delete_user
+
+
+def hash_password(password: str) -> str:
+    """Hash a plaintext password using bcrypt."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _is_bcrypt_hash(password_hash: str) -> bool:
+    return password_hash.startswith("$2a$") or password_hash.startswith("$2b$") or password_hash.startswith("$2y$")
 
 # Default demo users (seeded into the DB on first access)
 DEMO_USERS = [
     User(
         username="admin",
-        password_hash=generate_password_hash("Admin123!"),
+        password_hash=hash_password("Admin123!"),
         roles=["admin", "manager"],
         department="Administration",
         can_view_high_sensitivity=True,
@@ -18,7 +28,7 @@ DEMO_USERS = [
     ),
     User(
         username="manager",
-        password_hash=generate_password_hash("Manager123!"),
+        password_hash=hash_password("Manager123!"),
         roles=["manager", "user"],
         department="Clinic",
         can_view_high_sensitivity=True,
@@ -26,7 +36,7 @@ DEMO_USERS = [
     ),
     User(
         username="clerk",
-        password_hash=generate_password_hash("Clerk123!"),
+        password_hash=hash_password("Clerk123!"),
         roles=["user"],
         department="Clinic",
         can_view_high_sensitivity=False,
@@ -34,7 +44,7 @@ DEMO_USERS = [
     ),
     User(
         username="staff",
-        password_hash=generate_password_hash("Staff123!"),
+        password_hash=hash_password("Staff123!"),
         roles=["user"],
         department="Billing",
         can_view_high_sensitivity=False,
@@ -42,7 +52,7 @@ DEMO_USERS = [
     ),
     User(
         username="doctor",
-        password_hash=generate_password_hash("Doctor123!"),
+        password_hash=hash_password("Doctor123!"),
         roles=["doctor", "user"],
         department="Clinic",
         can_view_high_sensitivity=True,
@@ -50,7 +60,7 @@ DEMO_USERS = [
     ),
     User(
         username="nurse",
-        password_hash=generate_password_hash("Nurse123!"),
+        password_hash=hash_password("Nurse123!"),
         roles=["nurse", "user"],
         department="Clinic",
         can_view_high_sensitivity=False,
@@ -76,7 +86,17 @@ def verify_password(username: str, password: str) -> bool:
     user = db_get_user(username)
     if not user:
         return False
-    return check_password_hash(user.password_hash, password)
+
+    # Preferred path: bcrypt verification.
+    if _is_bcrypt_hash(user.password_hash):
+        return bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8"))
+
+    # Legacy path: support old hashes and migrate to bcrypt on successful login.
+    if check_password_hash(user.password_hash, password):
+        user.password_hash = hash_password(password)
+        db_insert_user(user)
+        return True
+    return False
 
 
 def is_reauth_valid() -> bool:

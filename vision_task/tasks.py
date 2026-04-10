@@ -21,7 +21,11 @@ class TaskManager:
         return True  # LOW sensitivity visible to all
 
     def list_tasks(self, user: User) -> List[Task]:
-        """List tasks visible to user based on role and sensitivity permissions."""
+        """List tasks visible to user.
+
+        Admin users can view all tasks. Non-admin users can only view tasks
+        assigned directly to their username.
+        """
         visible_tasks = []
         for task in db_list_tasks():
             # Admins see all tasks
@@ -29,12 +33,8 @@ class TaskManager:
                 visible_tasks.append(task)
                 continue
 
-            # Users see tasks they created, are assigned to, or can access by sensitivity
-            if (
-                task.created_by == user.username
-                or task.assigned_to == user.username
-                or self._can_view_sensitivity(user, task.sensitivity)
-            ):
+            # Non-admin users only see tasks assigned to them.
+            if task.assigned_to == user.username:
                 visible_tasks.append(task)
                 AuditLog.log_access_attempt(
                     user.username, task.id, True, task.sensitivity.value
@@ -46,7 +46,7 @@ class TaskManager:
                     task.id,
                     False,
                     task.sensitivity.value,
-                    reason="Insufficient clearance for sensitivity level",
+                    reason="Task is not assigned to this user",
                 )
 
         return visible_tasks
@@ -89,13 +89,8 @@ class TaskManager:
         if not task:
             return None
 
-        # Check if user can access this task
-        if (
-            task.created_by == user.username
-            or task.assigned_to == user.username
-            or "admin" in user.roles
-            or self._can_view_sensitivity(user, task.sensitivity)
-        ):
+        # Admin can access any task. Non-admin can access only assigned tasks.
+        if "admin" in user.roles or task.assigned_to == user.username:
             AuditLog.log_access_attempt(user.username, task.id, True, task.sensitivity.value)
             return task
 
@@ -104,7 +99,7 @@ class TaskManager:
             task.id,
             False,
             task.sensitivity.value,
-            reason="Insufficient clearance",
+            reason="Task is not assigned to this user",
         )
         return None
 

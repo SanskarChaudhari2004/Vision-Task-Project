@@ -13,17 +13,17 @@ from flask import (
     Flask, jsonify, request, render_template,
     redirect, url_for, session, Response,
 )
-from werkzeug.security import generate_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from .auth import (
     require_role, authenticate, verify_password,
     is_reauth_valid, set_reauth_session, clear_reauth_session,
     get_user, list_users, create_user, delete_user,
-    REAUTH_TIMEOUT_MINUTES,
+    REAUTH_TIMEOUT_MINUTES, hash_password,
 )
 from .tasks import TaskManager
 from .logger import AuditLog
 from .models import Task, TaskStatus, SensitivityLevel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import uuid
 
@@ -181,6 +181,30 @@ VALID_ROLES = {"admin", "manager", "user", "doctor", "nurse"}
 def create_app():
     app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "templates"))
     app.secret_key = "vision-task-demo-2026"
+
+    # Trust TLS headers when behind a reverse proxy/load balancer.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+    force_https = os.environ.get("VISION_TASK_FORCE_HTTPS", "0").strip().lower() in {"1", "true", "yes", "on"}
+    if force_https:
+        app.config["PREFERRED_URL_SCHEME"] = "https"
+        app.config["SESSION_COOKIE_SECURE"] = True
+
+        @app.before_request
+        def _force_https_redirect():
+            # Keep local HTTP workflow available unless explicitly disabled.
+            if os.environ.get("VISION_TASK_ALLOW_HTTP_LOCALHOST", "1").strip().lower() in {"1", "true", "yes", "on"}:
+                if request.host.startswith("127.0.0.1") or request.host.startswith("localhost"):
+                    return None
+            if request.is_secure:
+                return None
+            return redirect(request.url.replace("http://", "https://", 1), code=301)
+
+        @app.after_request
+        def _set_hsts_headers(response):
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+            return response
+
     task_manager = TaskManager()
     _seed_demo_tasks(task_manager)
 
@@ -195,6 +219,163 @@ def create_app():
             return redirect(url_for("login_page"))
         return None
 
+    def _safe_parse_int(value):
+        if value in (None, ""):
+            return None
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            return None
+
+    def _safe_parse_datetime(value):
+        if not value:
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError:
+            return None
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
+
+    def _apply_task_filters(tasks, params):
+        q = (params.get("q", "") or "").strip().lower()
+        filter_sens = (params.get("sensitivity", "") or "").strip().lower()
+        filter_stat = (params.get("status", "") or "").strip().lower()
+        filter_assigned = (params.get("assigned_to", "") or "").strip().lower()
+        filter_department = (params.get("department", "") or "").strip().lower()
+        filter_creator = (params.get("created_by", "") or "").strip().lower()
+        sort_by = (params.get("sort", "created_at") or "created_at").strip().lower()
+        sort_order = (params.get("order", "desc") or "desc").strip().lower()
+
+        priority_min = _safe_parse_int(params.get("priority_min"))
+        priority_max = _safe_parse_int(params.get("priority_max"))
+        created_after = _safe_parse_datetime(params.get("created_after"))
+        created_before = _safe_parse_datetime(params.get("created_before"))
+        updated_after = _safe_parse_datetime(params.get("updated_after"))
+        updated_before = _safe_parse_datetime(params.get("updated_before"))
+
+        if q:
+            tasks = [
+                t for t in tasks
+                if q in (t.title or "").lower()
+                or q in (t.description or "").lower()
+                or q in (t.created_by or "").lower()
+                or q in (t.assigned_to or "").lower()
+                or q in (t.department or "").lower()
+            ]
+        if filter_sens:
+            tasks = [t for t in tasks if t.sensitivity.value == filter_sens]
+        if filter_stat:
+            tasks = [t for t in tasks if t.status.value == filter_stat]
+        if filter_assigned:
+            tasks = [t for t in tasks if filter_assigned == (t.assigned_to or "").lower()]
+        if filter_department:
+            tasks = [t for t in tasks if filter_department == (t.department or "").lower()]
+        if filter_creator:
+            tasks = [t for t in tasks if filter_creator == (t.created_by or "").lower()]
+        if priority_min is not None:
+            tasks = [t for t in tasks if t.priority >= priority_min]
+        if priority_max is not None:
+            tasks = [t for t in tasks if t.priority <= priority_max]
+        if created_after is not None:
+            tasks = [t for t in tasks if t.created_at >= created_after]
+        if created_before is not None:
+            tasks = [t for t in tasks if t.created_at <= created_before]
+        if updated_after is not None:
+            tasks = [t for t in tasks if t.updated_at >= updated_after]
+        if updated_before is not None:
+            tasks = [t for t in tasks if t.updated_at <= updated_before]
+
+        if sort_by:
+            sort_map = {
+                "priority": lambda t: t.priority,
+                "created_at": lambda t: t.created_at,
+                "updated_at": lambda t: t.updated_at,
+                "title": lambda t: (t.title or "").lower(),
+                "status": lambda t: t.status.value,
+                "sensitivity": lambda t: t.sensitivity.value,
+            }
+            key_func = sort_map.get(sort_by)
+            if key_func:
+                tasks = sorted(tasks, key=key_func, reverse=(sort_order != "asc"))
+
+        return tasks
+
+    def _compute_performance_analytics(tasks):
+        now = datetime.utcnow()
+        open_tasks = [t for t in tasks if t.status not in (TaskStatus.COMPLETED, TaskStatus.CANCELLED)]
+        completed_tasks = [t for t in tasks if t.status == TaskStatus.COMPLETED]
+
+        completion_rate = (len(completed_tasks) / len(tasks) * 100.0) if tasks else 0.0
+        throughput_7d = len([t for t in completed_tasks if t.updated_at >= now - timedelta(days=7)])
+        created_7d = len([t for t in tasks if t.created_at >= now - timedelta(days=7)])
+
+        cycle_hours = []
+        for t in completed_tasks:
+            delta = (t.updated_at - t.created_at).total_seconds()
+            if delta >= 0:
+                cycle_hours.append(delta / 3600.0)
+        avg_cycle_hours = round(sum(cycle_hours) / len(cycle_hours), 2) if cycle_hours else 0.0
+
+        backlog_by_priority = {
+            "high": sum(1 for t in open_tasks if t.priority == 2),
+            "medium": sum(1 for t in open_tasks if t.priority == 1),
+            "low": sum(1 for t in open_tasks if t.priority == 0),
+        }
+
+        backlog_by_department = {}
+        for t in open_tasks:
+            dept = t.department or "Unassigned"
+            backlog_by_department[dept] = backlog_by_department.get(dept, 0) + 1
+
+        assignee_load = {}
+        for t in open_tasks:
+            assignee = t.assigned_to or "unassigned"
+            assignee_load[assignee] = assignee_load.get(assignee, 0) + 1
+
+        labels = []
+        created_series = []
+        completed_series = []
+        for days_ago in range(6, -1, -1):
+            day_start = (now - timedelta(days=days_ago)).replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+            labels.append(day_start.strftime("%Y-%m-%d"))
+            created_series.append(sum(1 for t in tasks if day_start <= t.created_at < day_end))
+            completed_series.append(sum(1 for t in completed_tasks if day_start <= t.updated_at < day_end))
+
+        return {
+            "kpis": {
+                "total_visible_tasks": len(tasks),
+                "open_tasks": len(open_tasks),
+                "completed_tasks": len(completed_tasks),
+                "completion_rate": round(completion_rate, 2),
+                "created_last_7d": created_7d,
+                "completed_last_7d": throughput_7d,
+                "avg_cycle_time_hours": avg_cycle_hours,
+                "high_sensitivity_open": sum(
+                    1 for t in open_tasks if t.sensitivity == SensitivityLevel.HIGH
+                ),
+            },
+            "backlog_by_priority": backlog_by_priority,
+            "backlog_by_department": dict(
+                sorted(backlog_by_department.items(), key=lambda kv: kv[1], reverse=True)
+            ),
+            "assignee_load": dict(
+                sorted(assignee_load.items(), key=lambda kv: kv[1], reverse=True)[:8]
+            ),
+            "trend_last_7d": {
+                "labels": labels,
+                "created": created_series,
+                "completed": completed_series,
+            },
+        }
+
     # ── API ─────────────────────────────────────────────────────────────
 
     @app.route("/")
@@ -205,11 +386,15 @@ def create_app():
     @authenticate
     def list_tasks_api(user):
         tasks = task_manager.list_tasks(user)
+        total_visible = len(tasks)
+        tasks = _apply_task_filters(tasks, request.args)
         return jsonify({"tasks": [t.to_dict() for t in tasks], "count": len(tasks),
+                        "total_visible": total_visible,
                         "stats": task_manager.get_stats(user)})
 
     @app.route("/api/tasks", methods=["POST"])
     @authenticate
+    @require_role("admin")
     def create_task_api(user):
         return jsonify(task_manager.create_task(user, request.json or {}).to_dict()), 201
 
@@ -237,6 +422,16 @@ def create_app():
     def get_stats_api(user):
         return jsonify({"user": user.username, "department": user.department,
                         "stats": task_manager.get_stats(user)})
+
+    @app.route("/api/analytics/performance", methods=["GET"])
+    @authenticate
+    def performance_analytics_api(user):
+        tasks = task_manager.list_tasks(user)
+        return jsonify({
+            "user": user.username,
+            "department": user.department,
+            "analytics": _compute_performance_analytics(tasks),
+        })
 
     @app.route("/api/users", methods=["GET"])
     @authenticate
@@ -318,41 +513,70 @@ def create_app():
         if redir: return redir
         user = _get_session_user()
 
-        q               = request.args.get("q", "").strip().lower()
-        filter_sens     = request.args.get("sensitivity", "")
-        filter_stat     = request.args.get("status", "")
-        filter_assigned = request.args.get("assigned_to", "")   # teammate addition
-        sort_by = request.args.get("sort", "")
-        sort_order = request.args.get("order", "desc")
+        q                  = request.args.get("q", "").strip()
+        filter_sens        = request.args.get("sensitivity", "").strip()
+        filter_stat        = request.args.get("status", "").strip()
+        filter_assigned    = request.args.get("assigned_to", "").strip()
+        filter_department  = request.args.get("department", "").strip()
+        filter_created_by  = request.args.get("created_by", "").strip()
+        filter_priority_min = request.args.get("priority_min", "").strip()
+        filter_priority_max = request.args.get("priority_max", "").strip()
+        filter_created_after = request.args.get("created_after", "").strip()
+        filter_created_before = request.args.get("created_before", "").strip()
+        filter_updated_after = request.args.get("updated_after", "").strip()
+        filter_updated_before = request.args.get("updated_before", "").strip()
+        sort_by = request.args.get("sort", "created_at").strip()
+        sort_order = request.args.get("order", "desc").strip()
 
         tasks = task_manager.list_tasks(user)
-        if q:               tasks = [t for t in tasks if q in t.title.lower() or q in (t.description or "").lower()]
-        if filter_sens:     tasks = [t for t in tasks if t.sensitivity.value == filter_sens]
-        if filter_stat:     tasks = [t for t in tasks if t.status.value == filter_stat]
-        if filter_assigned: tasks = [t for t in tasks if (t.assigned_to or "") == filter_assigned]
+        tasks = _apply_task_filters(tasks, request.args)
+        completed_visible_count = sum(1 for t in tasks if t.status == TaskStatus.COMPLETED)
 
-        if sort_by == "priority":
-            # Higher priority (2) should come first by default.
-            reverse = sort_order != "asc"
-            tasks = sorted(tasks, key=lambda t: t.priority, reverse=reverse)
+        task_rows = []
+        for t in tasks:
+            d = t.to_dict()
+            d["can_complete"] = ("admin" in user.roles) or (t.created_by == user.username)
+            task_rows.append(d)
 
         return render_template("dashboard.html", user=user,
-                               tasks=[t.to_dict() for t in tasks],
+                               tasks=task_rows,
                                stats=task_manager.get_stats(user),
                                search_query=q,
                                filter_sensitivity=filter_sens,
                                filter_status=filter_stat,
                                filter_assigned=filter_assigned,
+                               filter_department=filter_department,
+                               filter_created_by=filter_created_by,
+                               filter_priority_min=filter_priority_min,
+                               filter_priority_max=filter_priority_max,
+                               filter_created_after=filter_created_after,
+                               filter_created_before=filter_created_before,
+                               filter_updated_after=filter_updated_after,
+                               filter_updated_before=filter_updated_before,
                                sort_by=sort_by,
                                sort_order=sort_order,
+                               completed_visible_count=completed_visible_count,
                                is_doctor="doctor" in user.roles,   # teammate addition
                                is_nurse="nurse"  in user.roles)    # teammate addition
+
+    @app.route("/analytics", methods=["GET"])
+    def ui_performance_analytics():
+        redir = _require_login()
+        if redir:
+            return redir
+        user = _get_session_user()
+        tasks = task_manager.list_tasks(user)
+        analytics = _compute_performance_analytics(tasks)
+        return render_template("performance_analytics.html", user=user, analytics=analytics)
 
     @app.route("/dashboard", methods=["POST"])
     def ui_create_task():
         redir = _require_login()
         if redir: return redir
         user = _get_session_user()
+        if "admin" not in user.roles:
+            return render_template("error.html", user=user,
+                                   message="Only administrators can create tasks."), 403
         f = request.form
         task_manager.create_task(user, {
             "title":       f.get("title", ""),
@@ -415,6 +639,40 @@ def create_app():
         if task_obj and task_obj.sensitivity.value == "high" and not is_reauth_valid():
             return redirect(url_for("reauth_page", next=url_for("ui_view_task", task_id=task_id)))
         task_manager.delete_task(user, task_id)
+        return redirect(url_for("ui_dashboard"))
+
+    @app.route("/tasks/delete-completed", methods=["POST"])
+    def ui_delete_completed_tasks():
+        redir = _require_login()
+        if redir:
+            return redir
+        user = _get_session_user()
+        if "admin" not in user.roles:
+            return render_template("error.html", user=user,
+                                   message="Only administrators can delete completed tasks."), 403
+
+        tasks = task_manager.list_tasks(user)
+        for task in tasks:
+            if task.status == TaskStatus.COMPLETED:
+                task_manager.delete_task(user, task.id)
+        return redirect(url_for("ui_dashboard"))
+
+    @app.route("/task/<task_id>/complete", methods=["POST"])
+    def ui_complete_task(task_id):
+        redir = _require_login()
+        if redir:
+            return redir
+        user = _get_session_user()
+        task_obj = task_manager.get_task(user, task_id)
+        if not task_obj:
+            return render_template("error.html", user=user, message="Task not found."), 404
+        if task_obj.sensitivity.value == "high" and not is_reauth_valid():
+            return redirect(url_for("reauth_page", next=url_for("ui_view_task", task_id=task_id)))
+
+        task = task_manager.update_task(user, task_id, {"status": "completed"})
+        if not task:
+            return render_template("error.html", user=user,
+                                   message="You don't have permission to complete this task."), 403
         return redirect(url_for("ui_dashboard"))
 
     # ── Activity Log (UC-6) ──────────────────────────────────────────────
@@ -544,7 +802,7 @@ def create_app():
         from .models import User as UserModel
         new_user = UserModel(
             username=username,
-            password_hash=generate_password_hash(password),
+            password_hash=hash_password(password),
             roles=new_roles,
             department=department,
             can_view_high_sensitivity=can_high,

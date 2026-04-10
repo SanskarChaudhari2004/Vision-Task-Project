@@ -97,7 +97,7 @@ def get_tasks():
     if 'username' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
         
-    tasks = Task.query.all()
+    tasks = Task.query.order_by(Task.created_at.desc()).all()
     return jsonify([{
         'id': task.id,
         'title': task.title,

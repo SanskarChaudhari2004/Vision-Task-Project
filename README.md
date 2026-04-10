@@ -27,10 +27,11 @@ Unlike general-purpose task management applications that treat all tasks equally
 ## Healthcare Features Implemented
 
 ### 1. **Secure Authentication**
-- User login system with token-based API authentication
+- User login system with password-based web authentication (bcrypt hashing)
+- Token-based API authentication for programmatic access
 - User roles: Admin, Manager, User
 - Department-based organization (Administration, Clinic, Billing)
-- Foundation for future password hashing and OAuth integration
+- Foundation for future OAuth integration
 
 ### 2. **Role-Based Access Control (RBAC)**
 - Admin access for system-wide operations
@@ -59,6 +60,13 @@ Unlike general-purpose task management applications that treat all tasks equally
 - **Priority Levels**: Low, Medium, High for urgent task identification
 - **Department Tracking**: Tasks linked to originating department
 - **Metadata**: Created/updated timestamps for compliance
+
+### 9. **Performance Analytics Dashboard**
+- KPI cards for visible workload, completion rate, and cycle time
+- 7-day creation/completion throughput trend
+- Backlog breakdown by priority and department
+- Assignee load distribution for open tasks
+- API endpoint for programmatic analytics access
 
 ### 6. **Healthcare Workflow Support**
 - Multi-department organization (Administration, Clinic, Billing)
@@ -115,16 +123,16 @@ Task:
 
 ## Demo Credentials
 
-Login with any of the following usernames (no password required for demo):
+Login with one of the demo username/password pairs below:
 
-| Username | Role | Department | Permissions |
-|----------|------|-----------|-------------|
-| `admin` | Admin, Manager | Administration | Full system access, can delete tasks, view all data |
-| `manager` | Manager, User | Clinic | Team oversight, view high/medium sensitivity tasks |
-| `doctor` | Doctor, User | Clinic | Clinical oversight, can view high/medium sensitivity tasks |
-| `nurse` | Nurse, User | Clinic | Clinical support, can view medium/low sensitivity tasks |
-| `clerk` | User | Clinic | Standard operations, view medium/low sensitivity tasks |
-| `staff` | User | Billing | Limited access, view only low/medium non-sensitive tasks |
+| Username | Password | Role | Department | Permissions |
+|----------|----------|------|-----------|-------------|
+| `admin` | `Admin123!` | Admin, Manager | Administration | Full system access, can delete tasks, view all data |
+| `manager` | `Manager123!` | Manager, User | Clinic | Team oversight, view high/medium sensitivity tasks |
+| `doctor` | `Doctor123!` | Doctor, User | Clinic | Clinical oversight, can view high/medium sensitivity tasks |
+| `nurse` | `Nurse123!` | Nurse, User | Clinic | Clinical support, can view medium/low sensitivity tasks |
+| `clerk` | `Clerk123!` | User | Clinic | Standard operations, view medium/low sensitivity tasks |
+| `staff` | `Staff123!` | User | Billing | Limited access, view only low/medium non-sensitive tasks |
 
 ---
 
@@ -133,7 +141,7 @@ Login with any of the following usernames (no password required for demo):
 This repository contains a Python-based prototype of the Vision Task system built with Flask. It includes:
 
 * API endpoints for task management
-* In-memory user store with role-based authentication
+* Persistent SQLite-backed user store with role-based authentication
 * Task sensitivity levels and simple logging
 
 ## Getting Started
@@ -163,10 +171,38 @@ This repository contains a Python-based prototype of the Vision Task system buil
 
    ✅ **Persistent storage**: Tasks are stored in a local SQLite database file (`vision_task.db`) so they survive server restarts.
 
+### HTTPS/TLS (Implemented)
+
+You can run Vision Task over HTTPS in two ways:
+
+1. **Local self-signed certificate (quick test)**
+
+  ```bash
+  VISION_TASK_SSL=adhoc python run.py
+  ```
+
+2. **Use your own certificate and key files**
+
+  ```bash
+  VISION_TASK_SSL_CERT=./certs/server.crt VISION_TASK_SSL_KEY=./certs/server.key python run.py
+  ```
+
+To enforce HTTPS redirects for non-local traffic and send HSTS headers:
+
+```bash
+VISION_TASK_FORCE_HTTPS=1 python run.py
+```
+
+By default, local HTTP (`localhost` / `127.0.0.1`) remains allowed when HTTPS enforcement is enabled. To force redirects even for local hosts:
+
+```bash
+VISION_TASK_FORCE_HTTPS=1 VISION_TASK_ALLOW_HTTP_LOCALHOST=0 python run.py
+```
+
 2. **Access the Web Interface**
    - Navigate to `http://127.0.0.1:5000/login`
-   - Login with any demo credential (e.g., `admin`, `manager`, `clerk`, `staff`)
-   - No password required for demo (in production, use secure password hashing)
+  - Login with any demo credential pair (e.g., `admin` / `Admin123!`)
+  - Passwords are stored using bcrypt hashes
 
 3. **Dashboard Features**
    - View tasks based on your permissions and clearance level
@@ -228,6 +264,12 @@ curl -H "Authorization: Bearer admin" http://127.0.0.1:5000/api/tasks
 
 **Statistics**
 - `GET /api/stats` - Get task statistics for current user
+
+**Performance Analytics**
+- `GET /api/analytics/performance` - Get KPI/trend analytics for tasks visible to current user
+
+**Analytics UI**
+- `GET /analytics` - View performance analytics dashboard in the web interface
 
 **Administration**
 - `GET /api/users` - List all users (admin only)
@@ -292,9 +334,9 @@ Vision-Task-Project/
 To extend Vision Task for production use, consider implementing:
 
 ### Security
-- [ ] Password-based authentication with bcrypt hashing
+- [x] Password-based authentication with bcrypt hashing
 - [ ] Multi-factor authentication (MFA)
-- [ ] HTTPS/TLS encryption
+- [x] HTTPS/TLS encryption
 - [ ] LDAP/Active Directory integration for healthcare networks
 - [ ] Session timeout and expiration
 
@@ -316,8 +358,8 @@ To extend Vision Task for production use, consider implementing:
 - [ ] Team collaboration and comments
 - [ ] Mobile application
 - [ ] Email notifications
-- [ ] Advanced search and filtering
-- [ ] Performance analytics and dashboards
+- [x] Advanced search and filtering
+- [x] Performance analytics and dashboards
 
 ### Compliance & Audit
 - [ ] Enhanced audit logging with digital signatures
@@ -333,6 +375,7 @@ To extend Vision Task for production use, consider implementing:
 **This is a demonstration system.** In production deployments:
 
 1. **Never use token-based authentication without passwords** - Implement proper password hashing (bcrypt, Argon2)
+  - Web login currently uses bcrypt-hashed passwords. API bearer tokens are still demo-oriented and should be replaced with signed/expiring tokens for production.
 2. **Enable HTTPS** - Use TLS certificates for encrypted communication
 3. **Use a production database** - Replace in-memory storage with PostgreSQL or similar
 4. **Implement session management** - Add timeout and secure session cookies

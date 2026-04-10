@@ -134,6 +134,7 @@
     </a>
     <div class="vt-nav-links">
         <a class="vt-nav-link {% if request.endpoint == 'ui_dashboard' %}active{% endif %}" href="{{ url_for('ui_dashboard') }}">Dashboard</a>
+        <a class="vt-nav-link {% if request.endpoint == 'ui_performance_analytics' %}active{% endif %}" href="{{ url_for('ui_performance_analytics') }}">Analytics</a>
         <a class="vt-nav-link {% if request.endpoint == 'ui_activity_log' %}active{% endif %}" href="{{ url_for('ui_activity_log') }}">Activity Log</a>
         <a class="vt-nav-link {% if request.endpoint == 'ui_users' %}active{% endif %}" href="{{ url_for('ui_users') }}">Users</a>
     </div>
