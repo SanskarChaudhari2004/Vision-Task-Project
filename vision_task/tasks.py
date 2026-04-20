@@ -162,6 +162,56 @@ class TaskManager:
 
         return task
 
+    def complete_task(self, user: User, task_id: str) -> Optional[Task]:
+        """Mark a task as completed.
+
+        This is intentionally more permissive than full edit: task assignees,
+        creators, and admins can complete a task.
+        """
+        task = self.get_task(user, task_id)
+        if not task:
+            AuditLog.log_action(
+                user_id=user.username,
+                action="complete",
+                resource_type="task",
+                resource_id=task_id,
+                status="denied",
+                reason="Not found or access denied",
+            )
+            return None
+
+        if (
+            "admin" not in user.roles
+            and task.created_by != user.username
+            and task.assigned_to != user.username
+        ):
+            AuditLog.log_action(
+                user_id=user.username,
+                action="complete",
+                resource_type="task",
+                resource_id=task_id,
+                status="denied",
+                reason="Only admin, creator, or assignee can complete",
+            )
+            return None
+
+        if task.status != TaskStatus.COMPLETED:
+            previous_status = task.status.value
+            task.status = TaskStatus.COMPLETED
+            from datetime import datetime
+
+            task.updated_at = datetime.utcnow()
+            insert_task(task)
+            AuditLog.log_modification(user.username, task.id, "status", previous_status, TaskStatus.COMPLETED.value)
+            AuditLog.log_action(
+                user_id=user.username,
+                action="complete",
+                resource_type="task",
+                resource_id=task.id,
+                sensitivity=task.sensitivity.value,
+            )
+        return task
+
     def delete_task(self, user: User, task_id: str) -> bool:
         """Delete task (admin only) with audit logging."""
         # Attempt to retrieve the task for logging

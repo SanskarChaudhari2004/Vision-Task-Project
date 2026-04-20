@@ -80,7 +80,7 @@
             <div class="vt-card-header">Edit Task</div>
             <div style="padding:20px;">
                 <form method="post" action="{{ url_for('ui_update_task', task_id=task.id) }}">
-                    {% if task.status != 'completed' %}
+                    {% if task.status != 'completed' and can_complete %}
                     <div style="margin-bottom:14px;">
                         <button type="submit" class="btn-brand" formaction="{{ url_for('ui_complete_task', task_id=task.id) }}" style="width:100%;">Complete Task</button>
                     </div>
@@ -153,6 +153,11 @@
                     <strong>Read-Only View</strong><br>
                     Only the task creator or administrators can edit this task.
                 </div>
+                {% if task.status != 'completed' and can_complete %}
+                <form method="post" action="{{ url_for('ui_complete_task', task_id=task.id) }}" style="margin-bottom:10px;">
+                    <button type="submit" class="btn-brand" style="width:100%;">Complete Task</button>
+                </form>
+                {% endif %}
                 <a href="{{ url_for('ui_dashboard') }}" class="btn-outline" style="display:block;text-align:center;">Back to Dashboard</a>
             </div>
         </div>

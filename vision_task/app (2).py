@@ -535,7 +535,11 @@ def create_app():
         task_rows = []
         for t in tasks:
             d = t.to_dict()
-            d["can_complete"] = ("admin" in user.roles) or (t.created_by == user.username)
+            d["can_complete"] = (
+                ("admin" in user.roles)
+                or (t.created_by == user.username)
+                or (t.assigned_to == user.username)
+            )
             task_rows.append(d)
 
         return render_template("dashboard.html", user=user,
@@ -601,7 +605,12 @@ def create_app():
         if task.sensitivity.value == "high" and not is_reauth_valid():
             AuditLog.log_action(user.username, "reauth_required", "task", task_id)
             return redirect(url_for("reauth_page", next=url_for("ui_view_task", task_id=task_id)))
-        return render_template("task_detail.html", task=task.to_dict(), user=user)
+        can_complete = (
+            ("admin" in user.roles)
+            or (task.created_by == user.username)
+            or (task.assigned_to == user.username)
+        )
+        return render_template("task_detail.html", task=task.to_dict(), user=user, can_complete=can_complete)
 
     @app.route("/task/<task_id>", methods=["POST"])
     def ui_update_task(task_id):
@@ -669,7 +678,7 @@ def create_app():
         if task_obj.sensitivity.value == "high" and not is_reauth_valid():
             return redirect(url_for("reauth_page", next=url_for("ui_view_task", task_id=task_id)))
 
-        task = task_manager.update_task(user, task_id, {"status": "completed"})
+        task = task_manager.complete_task(user, task_id)
         if not task:
             return render_template("error.html", user=user,
                                    message="You don't have permission to complete this task."), 403

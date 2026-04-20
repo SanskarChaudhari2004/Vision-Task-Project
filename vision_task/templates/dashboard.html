@@ -312,7 +312,7 @@
             </thead>
             <tbody>
             {% for task in tasks %}
-            <tr>
+            <tr data-task-url="{{ url_for('ui_view_task', task_id=task.id) }}" tabindex="-1" aria-selected="false">
                 <td class="sens-col-{{ task.sensitivity }}">
                     <a class="task-link" href="{{ url_for('ui_view_task', task_id=task.id) }}">{{ task.title }}</a>
                     {% if task.sensitivity == 'high' %}
@@ -361,5 +361,75 @@
 <div class="vt-alert vt-alert-info" style="margin-top:20px;">
     🔒 <strong>HIPAA Notice:</strong> All task actions are logged. High-sensitivity tasks require re-authentication before access or modification.
 </div>
+
+<style>
+    .vt-table tbody tr.vt-row-active {
+        outline: 2px solid #2d6bc4;
+        outline-offset: -2px;
+        background: #e8f0fb;
+    }
+</style>
+
+<script>
+(() => {
+    const rows = Array.from(document.querySelectorAll(".vt-table tbody tr[data-task-url]"));
+    if (!rows.length) {
+        return;
+    }
+
+    let activeIndex = 0;
+
+    function setActiveRow(nextIndex, shouldScroll = true) {
+        const clampedIndex = Math.max(0, Math.min(nextIndex, rows.length - 1));
+        rows.forEach((row, idx) => {
+            const isActive = idx === clampedIndex;
+            row.classList.toggle("vt-row-active", isActive);
+            row.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+        activeIndex = clampedIndex;
+        if (shouldScroll) {
+            rows[activeIndex].scrollIntoView({ block: "nearest" });
+        }
+    }
+
+    function openActiveTask() {
+        const url = rows[activeIndex].dataset.taskUrl;
+        if (url) {
+            window.location.href = url;
+        }
+    }
+
+    document.addEventListener("keydown", (event) => {
+        const target = event.target;
+        const tagName = (target.tagName || "").toLowerCase();
+        if (["input", "textarea", "select", "button"].includes(tagName) || target.isContentEditable) {
+            return;
+        }
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setActiveRow(activeIndex + 1);
+            return;
+        }
+
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setActiveRow(activeIndex - 1);
+            return;
+        }
+
+        if (event.key === "Enter" || event.key === "ArrowRight") {
+            event.preventDefault();
+            openActiveTask();
+        }
+    });
+
+    rows.forEach((row, idx) => {
+        row.addEventListener("click", () => setActiveRow(idx, false));
+    });
+
+    setActiveRow(0, false);
+})();
+</script>
 
 {% endblock %}
